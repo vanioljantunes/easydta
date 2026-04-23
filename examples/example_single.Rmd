@@ -1,0 +1,47 @@
+---
+title: "easydta: single-test DTA meta-analysis (anti-CCP)"
+output: html_document
+---
+
+```{r packages}
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+pacman::p_load(easydta, ggplot2, grid, gridExtra)
+```
+
+```{r load_data}
+path <- system.file("extdata/anti_ccp.csv", package = "easydta")
+d <- utils::read.csv(path, stringsAsFactors = FALSE)
+head(d)
+```
+
+```{r reshape}
+long <- dta_reshape(d,
+                    tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+                    studlab = "studlab",
+                    extra   = "generation")
+head(long)
+```
+
+```{r fit}
+fit <- dta_fit_single(long, nAGQ = 1)
+print(fit)
+```
+
+```{r heterogeneity}
+dta_heterogeneity(fit)
+```
+
+```{r save_forest}
+png("forest_anti_ccp.png", width = 1400, height = 1000, res = 150)
+dta_forest(fit, d, studlab = "studlab")
+dev.off()
+```
+
+```{r save_sroc}
+png("sroc_anti_ccp.png", width = 1200, height = 1000, res = 150)
+p <- dta_sroc(fit, auc_method = "trapz")
+print(p)
+dev.off()
+```

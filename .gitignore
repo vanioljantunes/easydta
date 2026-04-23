@@ -1,0 +1,19 @@
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+*.Rcheck/
+*.tar.gz
+*.log
+
+# Rendered example outputs
+examples/*.html
+examples/*.md
+examples/*_files/
+examples/*.png
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/

@@ -1,0 +1,37 @@
+# Hand-maintained NAMESPACE (not roxygen-generated) so students can
+# source() the files directly without needing devtools.
+
+export(dta_reshape)
+export(dta_reshape_pairwise)
+export(dta_fit_single)
+export(dta_fit_pairwise)
+export(dta_summary)
+export(dta_derived)
+export(dta_heterogeneity)
+export(dta_compare)
+export(dta_forest)
+export(dta_sroc)
+export(dta_roc_points)
+
+S3method(print, dta_single)
+S3method(print, dta_pairwise)
+S3method(print, dta_heterogeneity)
+S3method(print, dta_compare)
+S3method(summary, dta_single)
+S3method(summary, dta_pairwise)
+
+importFrom(lme4, glmer, VarCorr, fixef)
+importFrom(msm, deltamethod)
+importFrom(lmtest, lrtest)
+importFrom(stats, binom.test, plogis, qlogis, qnorm, qchisq, reshape,
+           setNames, vcov)
+importFrom(MASS, mvrnorm)
+importFrom(pracma, trapz)
+importFrom(utils, read.csv)
+importFrom(grid, grid.newpage, grid.draw)
+importFrom(gridExtra, grid.arrange, arrangeGrob)
+importFrom(ggplot2, ggplot, aes, geom_point, geom_errorbarh,
+           geom_line, geom_path, geom_polygon, geom_hline, geom_vline,
+           scale_x_continuous, scale_y_continuous, coord_cartesian,
+           theme_bw, theme, element_blank, element_text, labs,
+           annotate, geom_text)

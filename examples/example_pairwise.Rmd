@@ -1,0 +1,82 @@
+---
+title: "easydta: pairwise DTA meta-analysis (CT vs MRI, paired design)"
+output: html_document
+---
+
+```{r packages}
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+pacman::p_load(easydta, ggplot2, grid, gridExtra)
+```
+
+```{r load_data}
+path <- system.file("extdata/ct_mri.csv", package = "easydta")
+d <- utils::read.csv(path, stringsAsFactors = FALSE)
+head(d)
+```
+
+```{r reshape}
+long <- dta_reshape_pairwise(
+  d,
+  author       = "author",
+  year         = "year",
+  intervention = "CT",
+  control      = "MRI",
+  tp.e = "TP.e", fp.e = "FP.e", fn.e = "FN.e", tn.e = "TN.e",
+  tp.c = "TP.c", fp.c = "FP.c", fn.c = "FN.c", tn.c = "TN.c",
+  test_var = "test"
+)
+head(long)
+```
+
+```{r fit_pairwise}
+pair <- dta_fit_pairwise(long, test_var = "test", nAGQ = 1)
+print(pair)
+```
+
+```{r compare}
+cmp <- dta_compare(pair)
+print(cmp)
+```
+
+```{r fit_per_arm}
+# Fit a single-test bivariate model on each arm so we can draw arm-specific
+# forest plots and an overlay SROC.
+long_CT  <- subset(long, test == "CT")
+long_MRI <- subset(long, test == "MRI")
+fit_CT   <- dta_fit_single(long_CT)
+fit_MRI  <- dta_fit_single(long_MRI)
+```
+
+```{r save_forest_CT}
+# Build the wide subset needed by dta_forest() (one row per study, CT arm)
+d_CT <- data.frame(
+  studlab = paste(d$author, d$year),
+  TP = d$TP.e, FP = d$FP.e, FN = d$FN.e, TN = d$TN.e
+)
+png("forest_CT.png", width = 1400, height = 700, res = 150)
+dta_forest(fit_CT, d_CT, studlab = "studlab")
+dev.off()
+```
+
+```{r save_forest_MRI}
+d_MRI <- data.frame(
+  studlab = paste(d$author, d$year),
+  TP = d$TP.c, FP = d$FP.c, FN = d$FN.c, TN = d$TN.c
+)
+png("forest_MRI.png", width = 1400, height = 700, res = 150)
+dta_forest(fit_MRI, d_MRI, studlab = "studlab")
+dev.off()
+```
+
+```{r save_sroc_pairwise}
+# Per-arm SROC (separate panels, saved side by side as one image)
+png("sroc_pairwise.png", width = 1800, height = 900, res = 150)
+gridExtra::grid.arrange(
+  dta_sroc(fit_CT,  auc_method = "trapz", title = "CT"),
+  dta_sroc(fit_MRI, auc_method = "trapz", title = "MRI"),
+  ncol = 2
+)
+dev.off()
+```

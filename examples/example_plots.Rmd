@@ -1,0 +1,41 @@
+---
+title: "easydta: plots (coupled forest + SROC)"
+output: html_document
+---
+
+Demonstrates that `dta_forest()` returns sens and spec **side by side as a
+single composite output** (labels + sens + spec panels aligned via
+`gridExtra::grid.arrange(ncol = 3)`), and that `dta_sroc()` produces a full
+SROC with confidence region, prediction region, and AUC.
+
+```{r packages}
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+pacman::p_load(easydta, ggplot2, grid, gridExtra)
+```
+
+```{r load_data}
+path <- system.file("extdata/anti_ccp.csv", package = "easydta")
+d <- utils::read.csv(path, stringsAsFactors = FALSE)
+```
+
+```{r fit}
+long <- dta_reshape(d, tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+                    studlab = "studlab", extra = "generation")
+fit <- dta_fit_single(long)
+```
+
+```{r save_forest}
+png("forest_coupled.png", width = 1400, height = 1100, res = 150)
+dta_forest(fit, d, studlab = "studlab")   # single output, sens + spec side by side
+dev.off()
+```
+
+```{r save_sroc}
+png("sroc_with_auc.png", width = 1200, height = 1100, res = 150)
+p <- dta_sroc(fit, auc_method = "trapz")
+print(p)
+dev.off()
+cat("AUC =", attr(p, "AUC"), "\n")
+```
