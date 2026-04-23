@@ -18,8 +18,16 @@ threshold effect.
 
 ## Installation
 
+Install directly from GitHub:
+
 ```r
-# lightweight install from a local clone
+# install.packages("remotes")
+remotes::install_github("vanioljantunes/easydta")
+```
+
+Or from a local clone (for development):
+
+```r
 devtools::load_all("path/to/easydta")
 # or
 install.packages("path/to/easydta", repos = NULL, type = "source")
