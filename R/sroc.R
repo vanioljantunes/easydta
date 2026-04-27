@@ -13,10 +13,12 @@
 # retained as a fallback when `dmetatools` is not installed or when
 # `auc_method = "trapz"` is requested explicitly.
 #
-# Layout: an in-plot summary box is annotated in the bottom-left corner
+# Layout: an in-plot summary box is annotated in the bottom-RIGHT corner
 # with Sensitivity / Specificity / AUC (each with CI) and the bivariate
-# Zhou-Dendukuri I^2.  The bubble-size legend on the right is suppressed;
-# study points keep their bubble scaling visually but no legend is drawn.
+# Zhou-Dendukuri I^2.  Study points are open triangles, the summary
+# point is a filled black circle, and the confidence/prediction regions
+# are dashed/dotted black lines (close to a Cochrane-style SROC layout).
+# Panel grid lines and the bubble-size legend are suppressed.
 #
 # Install dmetatools from GitHub (CRAN-archived):
 #   remotes::install_github("nomahi/dmetatools")
@@ -104,60 +106,73 @@ dta_sroc <- function(fit,
     auc_val <- auc_res$AUC
     if (!is.null(auc_res$CI)) {
       auc_ci_pair <- auc_res$CI
-      auc_text <- sprintf("%.3f (%.3f, %.3f)",
+      auc_text <- sprintf("%.3f (%.3f-%.3f)",
                           auc_val, auc_res$CI[1], auc_res$CI[2])
     } else {
       auc_text <- sprintf("%.3f", auc_val)
     }
   }
 
-  fmt_ci <- function(x, lo, hi) sprintf("%.3f (%.3f, %.3f)", x, lo, hi)
-  rows_label <- c("Sensitivity:", "Specificity:", "AUC:", "I²:")
+  fmt2 <- function(x, lo, hi) sprintf("%.2f (%.2f-%.2f)", x, lo, hi)
+  i2_text <- if (is.na(i2_biv)) {
+    "n/a"
+  } else if (i2_biv >= 0.01) {
+    sprintf("%.0f%%", 100 * i2_biv)
+  } else {
+    sprintf("%.1f%%", 100 * i2_biv)
+  }
+
+  rows_label <- c("Sens =", "Spec =", "AUC =", "I² =")
   rows_value <- c(
-    fmt_ci(sens_ci["estimate"], sens_ci["lci"], sens_ci["uci"]),
-    fmt_ci(spec_ci["estimate"], spec_ci["lci"], spec_ci["uci"]),
+    fmt2(sens_ci["estimate"], sens_ci["lci"], sens_ci["uci"]),
+    fmt2(spec_ci["estimate"], spec_ci["lci"], spec_ci["uci"]),
     auc_text,
-    if (is.na(i2_biv)) "n/a" else sprintf("%.1f%%", 100 * i2_biv)
+    i2_text
   )
 
-  # Box geometry in plot coordinates ([0,1] x [0,1]).
-  bx <- list(xmin = 0.02, xmax = 0.50, ymin = 0.02, ymax = 0.34)
+  # Box geometry: bottom-right corner in plot coordinates ([0,1] x [0,1]).
+  bx <- list(xmin = 0.55, xmax = 0.98, ymin = 0.02, ymax = 0.34)
   ys_title <- bx$ymax - 0.04
   ys_rows  <- seq(ys_title - 0.05, by = -0.06, length.out = 4)
   x_label  <- bx$xmin + 0.02
-  x_value  <- bx$xmin + 0.18
+  x_value  <- bx$xmin + 0.16
 
   title_text <- sprintf('sROC of "%s" to predict "%s" in "%s"',
                         test, outcome, population)
+  box_title  <- sprintf("%s summary", test)
 
   # ---- Build plot ----------------------------------------------------------
-  p <- ggplot2::ggplot() +
-    ggplot2::geom_point(data = pts,
-                        ggplot2::aes(x = fpr, y = tpr, size = n_total),
-                        shape = 21, fill = "grey70", alpha = 0.6,
-                        show.legend = FALSE) +
-    ggplot2::geom_line(data = curve,
-                       ggplot2::aes(x = fpr, y = tpr),
-                       colour = "black", linewidth = 0.8) +
-    ggplot2::geom_point(data = summary_pt,
-                        ggplot2::aes(x = fpr, y = tpr),
-                        shape = 18, size = 4, colour = "red")
+  p <- ggplot2::ggplot()
 
   if (!is.null(cr_df)) {
     p <- p + ggplot2::geom_path(data = cr_df,
                                 ggplot2::aes(x = fpr, y = tpr),
-                                colour = "red", linetype = "dashed",
-                                linewidth = 0.7)
+                                colour = "black",
+                                linetype = "dashed",
+                                linewidth = 0.5)
   }
   if (!is.null(pr_df)) {
     p <- p + ggplot2::geom_path(data = pr_df,
                                 ggplot2::aes(x = fpr, y = tpr),
-                                colour = "blue", linetype = "dotted",
-                                linewidth = 0.7)
+                                colour = "black",
+                                linetype = "dotted",
+                                linewidth = 0.5)
   }
 
+  p <- p +
+    ggplot2::geom_line(data = curve,
+                       ggplot2::aes(x = fpr, y = tpr),
+                       colour = "black", linewidth = 0.8) +
+    ggplot2::geom_point(data = pts,
+                        ggplot2::aes(x = fpr, y = tpr),
+                        shape = 2, size = 2.4, colour = "black",
+                        show.legend = FALSE) +
+    ggplot2::geom_point(data = summary_pt,
+                        ggplot2::aes(x = fpr, y = tpr),
+                        shape = 16, size = 3.5, colour = "black")
+
   # Summary box: white-filled rectangle + bold title + bold labels + plain
-  # values, all positioned in plot coordinates.
+  # values, all positioned in plot coordinates (bottom-right corner).
   p <- p +
     ggplot2::annotate("rect",
                       xmin = bx$xmin, xmax = bx$xmax,
@@ -166,7 +181,7 @@ dta_sroc <- function(fit,
                       linewidth = 0.4) +
     ggplot2::annotate("text",
                       x = (bx$xmin + bx$xmax) / 2, y = ys_title,
-                      label = "Summary", fontface = "bold", size = 3.6) +
+                      label = box_title, fontface = "bold", size = 3.6) +
     ggplot2::annotate("text",
                       x = x_label, y = ys_rows,
                       label = rows_label,

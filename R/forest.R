@@ -1,18 +1,24 @@
 # ============================================================================
 # forest.R  -  Coupled sensitivity / specificity forest plot via grid
 #
-# Three ggplot panels composed side-by-side with gridExtra::grid.arrange:
+# Five ggplot panels composed side-by-side with gridExtra::grid.arrange:
 #   (1) study label + raw 2x2 counts (studlab, TP, FN, TN, FP)
 #   (2) Sensitivity point + exact 95% binomial CI per study, summary diamond
-#   (3) Specificity point + exact 95% binomial CI per study, summary diamond
+#   (3) Sensitivity numeric value: "est (lci-uci)" per row
+#   (4) Specificity point + exact 95% binomial CI per study, summary diamond
+#   (5) Specificity numeric value: "est (lci-uci)" per row
 #
-# Counts are reconstructed from fit$long (the long-format data the model was
-# fit on), so the user only passes the fit object.
+# Counts and study labels are reconstructed from fit$long, so the user
+# passes only the fit object.  Per-study CIs are exact (Clopper-Pearson);
+# the summary row uses the bivariate glmer fixed-effect Se/Sp with
+# Wald CI on logit scale, then back-transformed by plogis().
 #
-# Summary (diamond) row uses the bivariate glmer fixed-effect Se and Sp with
-# Wald CI on logit scale then back-transformed by plogis().
+# Row alignment: ALL five panels share the same x-axis space at the bottom
+# (the non-CI panels render an invisible axis with `colour = NA` to keep
+# the same vertical space), so the inner panel areas have identical
+# heights and study rows line up exactly across all panels.
 #
-# Zebra shading alternates row backgrounds across all three panels for
+# Zebra shading alternates row backgrounds across all five panels for
 # readability; the summary row is never striped.
 # ============================================================================
 
@@ -21,7 +27,7 @@
 #' @param fit    A `dta_single` object. The 2x2 counts and the study labels
 #'   are pulled from `fit$long`, so no separate data frame is needed.
 #' @param conf   Confidence level (default 0.95).
-#' @param digits Numeric display digits (default 2).
+#' @param digits Numeric display digits for the value columns (default 2).
 #'
 #' @return A gtable object drawn on the current device.
 #' @export
@@ -75,6 +81,11 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
   se_df$ypos <- (summary_idx + 1) - se_df$idx
   sp_df$ypos <- (summary_idx + 1) - sp_df$idx
 
+  fmt <- function(e, l, u, d) sprintf(sprintf("%%.%df (%%.%df-%%.%df)", d, d, d),
+                                       e, l, u)
+  se_df$txt <- fmt(se_df$est, se_df$lci, se_df$uci, digits)
+  sp_df$txt <- fmt(sp_df$est, sp_df$lci, sp_df$uci, digits)
+
   # Zebra shading: stripe every other study row; never stripe the summary.
   stripe_idx <- seq_len(nrow_d)
   stripe_idx <- stripe_idx[stripe_idx %% 2L == 1L]
@@ -117,26 +128,43 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
     stringsAsFactors = FALSE
   )
 
-  header_text <- sprintf("%-22s %4s %4s %4s %4s",
-                         "Study", "TP", "FN", "TN", "FP")
+  header_label <- sprintf("%-22s %4s %4s %4s %4s",
+                          "Study", "TP", "FN", "TN", "FP")
 
-  p_labels <- ggplot2::ggplot(label_df,
-                              ggplot2::aes(x = 0, y = ypos, label = label)) +
-    zebra_layer() +
-    ggplot2::geom_text(hjust = 0, size = 3, family = "mono") +
-    ggplot2::coord_cartesian(xlim = c(0, 1)) +
-    ggplot2::theme_bw() +
-    ggplot2::theme(axis.text   = ggplot2::element_blank(),
-                   axis.ticks  = ggplot2::element_blank(),
-                   axis.title  = ggplot2::element_blank(),
-                   panel.grid  = ggplot2::element_blank(),
-                   panel.border = ggplot2::element_blank(),
-                   plot.title  = ggplot2::element_text(family = "mono",
-                                                       size = 9,
-                                                       hjust = 0)) +
-    ggplot2::labs(title = header_text)
+  # Common theme for non-CI panels: keeps the bottom axis space (so the
+  # inner panel rectangles have the same height as the CI panels, which
+  # have visible x-axis ticks/title/labels), but renders that area in NA
+  # colour so it is invisible.
+  invisible_axis <- ggplot2::theme(
+    axis.text.x  = ggplot2::element_text(colour = NA),
+    axis.text.y  = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_line(colour = NA),
+    axis.ticks.y = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_text(colour = NA),
+    axis.title.y = ggplot2::element_blank(),
+    panel.grid   = ggplot2::element_blank(),
+    panel.border = ggplot2::element_rect(colour = NA, fill = NA),
+    plot.title   = ggplot2::element_text(family = "mono",
+                                         size = 9, hjust = 0)
+  )
 
-  # ----- Sensitivity / Specificity panels ----------------------------------
+  text_panel <- function(df, lab_col, title) {
+    ggplot2::ggplot(df, ggplot2::aes(x = 0, y = ypos,
+                                     label = .data[[lab_col]])) +
+      zebra_layer() +
+      ggplot2::geom_text(hjust = 0, size = 3, family = "mono") +
+      ggplot2::coord_cartesian(xlim = c(0, 1)) +
+      ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+      ggplot2::theme_bw() +
+      invisible_axis +
+      ggplot2::labs(title = title, x = " ")
+  }
+
+  p_labels <- text_panel(label_df, "label", header_label)
+  p_se_txt <- text_panel(se_df,    "txt",   "Sens (95% CI)")
+  p_sp_txt <- text_panel(sp_df,    "txt",   "Spec (95% CI)")
+
+  # ----- Sensitivity / Specificity CI panels --------------------------------
   make_panel <- function(df, title) {
     df$is_sum <- df$study == "Summary"
     df$point_shape <- ifelse(df$is_sum, 18L, 15L)  # diamond vs filled square
@@ -155,10 +183,11 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
                                   breaks = seq(0, 1, 0.2)) +
       ggplot2::theme_bw() +
       ggplot2::theme(legend.position = "none",
-                     axis.text.y = ggplot2::element_blank(),
-                     axis.ticks.y = ggplot2::element_blank(),
-                     axis.title.y = ggplot2::element_blank(),
-                     panel.grid.minor = ggplot2::element_blank()) +
+                     axis.text.y     = ggplot2::element_blank(),
+                     axis.ticks.y    = ggplot2::element_blank(),
+                     axis.title.y    = ggplot2::element_blank(),
+                     panel.grid.minor = ggplot2::element_blank(),
+                     plot.title = ggplot2::element_text(size = 9, hjust = 0)) +
       ggplot2::labs(x = title, title = title)
   }
 
@@ -166,7 +195,8 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
   p_sp <- make_panel(sp_df, "Specificity (95% CI)")
 
   gridExtra::grid.arrange(
-    p_labels, p_se, p_sp,
-    ncol = 3, widths = c(2.4, 2, 2)
+    p_labels, p_se, p_se_txt, p_sp, p_sp_txt,
+    ncol = 5,
+    widths = c(2.4, 1.8, 1.5, 1.8, 1.5)
   )
 }
