@@ -9,10 +9,14 @@
 #
 # AUC: primary method is the bootstrap from `dmetatools::AUC_boot` (Noma
 # et al.), which resamples the bivariate model and yields both a point
-# estimate and a bootstrap CI. This matches the methodology recommended
-# for DTA AUC inference. Trapezoid integration over the SROC is retained
-# as a fallback when `dmetatools` is not installed or when `auc_method =
-# "trapz"` is requested explicitly.
+# estimate and a bootstrap CI. Trapezoid integration over the SROC is
+# retained as a fallback when `dmetatools` is not installed or when
+# `auc_method = "trapz"` is requested explicitly.
+#
+# Layout: an in-plot summary box is annotated in the bottom-left corner
+# with Sensitivity / Specificity / AUC (each with CI) and the bivariate
+# Zhou-Dendukuri I^2.  The bubble-size legend on the right is suppressed;
+# study points keep their bubble scaling visually but no legend is drawn.
 #
 # Install dmetatools from GitHub (CRAN-archived):
 #   remotes::install_github("nomahi/dmetatools")
@@ -20,36 +24,37 @@
 
 #' SROC plot with 95% confidence and prediction regions + AUC
 #'
-#' @param fit     A `dta_single` object.
-#' @param ci      Draw the 95% confidence region?  (default TRUE)
-#' @param pred    Draw the 95% prediction region?  (default TRUE)
-#' @param auc     Compute AUC and attach as attribute?  (default TRUE)
-#' @param auc_method  "boot" (default; uses [dmetatools::AUC_boot()]) or
+#' @param fit         A `dta_single` object.
+#' @param test        Test name shown in the main title (default "test").
+#' @param outcome     Outcome name shown in the main title (default "outcome").
+#' @param population  Population name shown in the main title (default
+#'   "population"). The title is rendered as
+#'   `sROC of "<test>" to predict "<outcome>" in "<population>"`.
+#' @param ci          Draw the 95% confidence region?  (default TRUE)
+#' @param pred        Draw the 95% prediction region?  (default TRUE)
+#' @param auc         Compute AUC and attach as attribute?  (default TRUE)
+#' @param auc_method  "boot" (default; uses `dmetatools::AUC_boot`) or
 #'   "trapz" (numerical integration of the SROC curve with `pracma::trapz`;
 #'   automatically used as a fallback if `dmetatools` is not installed).
-#' @param B       Number of bootstrap replicates for "boot" (default 2000).
-#' @param conf    Confidence level (default 0.95).
-#' @param n_grid  Grid size for the SROC curve (default 200).
-#' @param title   Plot title.
-#' @param data    For `auc_method = "boot"`, the WIDE data frame carrying
-#'   TP/FP/FN/TN. If NULL, counts are reconstructed from `fit$long`.
-#' @param tp,fp,fn,tn  Column names in `data` (default TP/FP/FN/TN).
+#' @param B           Number of bootstrap replicates for "boot" (default 2000).
+#' @param conf        Confidence level (default 0.95).
+#' @param n_grid      Grid size for the SROC curve (default 200).
 #'
 #' @return A ggplot object; if `auc = TRUE`, `attr(x, "AUC")` holds the AUC
 #'   point estimate, and for the bootstrap method `attr(x, "AUC_CI")` holds
 #'   the CI.
 #' @export
 dta_sroc <- function(fit,
+                     test       = "test",
+                     outcome    = "outcome",
+                     population = "population",
                      ci    = TRUE,
                      pred  = TRUE,
                      auc   = TRUE,
                      auc_method = c("boot", "trapz"),
                      B     = 2000,
                      conf  = 0.95,
-                     n_grid = 200,
-                     title = "SROC",
-                     data  = NULL,
-                     tp = "TP", fp = "FP", fn = "FN", tn = "TN") {
+                     n_grid = 200) {
   auc_method <- match.arg(auc_method)
   stopifnot(inherits(fit, "dta_single"))
   f <- .fixed_se_sp(fit$fit)
@@ -83,10 +88,54 @@ dta_sroc <- function(fit,
   summary_pt <- data.frame(fpr = 1 - .inv_logit(f$lspec),
                            tpr = .inv_logit(f$lsens))
 
+  # ---- Numbers for the in-plot summary box ---------------------------------
+  sens_ci <- .logit_ci(f$lsens, f$se_lsens, conf)
+  spec_ci <- .logit_ci(f$lspec, f$se_lspec, conf)
+  i2_biv  <- if (!is.null(fit$heterogeneity)) {
+    fit$heterogeneity$I2_biv
+  } else NA_real_
+
+  auc_val     <- NA_real_
+  auc_ci_pair <- NULL
+  auc_text    <- "n/a"
+  if (auc) {
+    auc_res <- .compute_auc(fit, NULL, auc_method, B, conf, curve,
+                            "TP", "FP", "FN", "TN")
+    auc_val <- auc_res$AUC
+    if (!is.null(auc_res$CI)) {
+      auc_ci_pair <- auc_res$CI
+      auc_text <- sprintf("%.3f (%.3f, %.3f)",
+                          auc_val, auc_res$CI[1], auc_res$CI[2])
+    } else {
+      auc_text <- sprintf("%.3f", auc_val)
+    }
+  }
+
+  fmt_ci <- function(x, lo, hi) sprintf("%.3f (%.3f, %.3f)", x, lo, hi)
+  rows_label <- c("Sensitivity:", "Specificity:", "AUC:", "I²:")
+  rows_value <- c(
+    fmt_ci(sens_ci["estimate"], sens_ci["lci"], sens_ci["uci"]),
+    fmt_ci(spec_ci["estimate"], spec_ci["lci"], spec_ci["uci"]),
+    auc_text,
+    if (is.na(i2_biv)) "n/a" else sprintf("%.1f%%", 100 * i2_biv)
+  )
+
+  # Box geometry in plot coordinates ([0,1] x [0,1]).
+  bx <- list(xmin = 0.02, xmax = 0.50, ymin = 0.02, ymax = 0.34)
+  ys_title <- bx$ymax - 0.04
+  ys_rows  <- seq(ys_title - 0.05, by = -0.06, length.out = 4)
+  x_label  <- bx$xmin + 0.02
+  x_value  <- bx$xmin + 0.18
+
+  title_text <- sprintf('sROC of "%s" to predict "%s" in "%s"',
+                        test, outcome, population)
+
+  # ---- Build plot ----------------------------------------------------------
   p <- ggplot2::ggplot() +
     ggplot2::geom_point(data = pts,
                         ggplot2::aes(x = fpr, y = tpr, size = n_total),
-                        shape = 21, fill = "grey70", alpha = 0.6) +
+                        shape = 21, fill = "grey70", alpha = 0.6,
+                        show.legend = FALSE) +
     ggplot2::geom_line(data = curve,
                        ggplot2::aes(x = fpr, y = tpr),
                        colour = "black", linewidth = 0.8) +
@@ -97,17 +146,35 @@ dta_sroc <- function(fit,
   if (!is.null(cr_df)) {
     p <- p + ggplot2::geom_path(data = cr_df,
                                 ggplot2::aes(x = fpr, y = tpr),
-                                colour = "red",
-                                linetype = "dashed",
+                                colour = "red", linetype = "dashed",
                                 linewidth = 0.7)
   }
   if (!is.null(pr_df)) {
     p <- p + ggplot2::geom_path(data = pr_df,
                                 ggplot2::aes(x = fpr, y = tpr),
-                                colour = "blue",
-                                linetype = "dotted",
+                                colour = "blue", linetype = "dotted",
                                 linewidth = 0.7)
   }
+
+  # Summary box: white-filled rectangle + bold title + bold labels + plain
+  # values, all positioned in plot coordinates.
+  p <- p +
+    ggplot2::annotate("rect",
+                      xmin = bx$xmin, xmax = bx$xmax,
+                      ymin = bx$ymin, ymax = bx$ymax,
+                      fill = "white", colour = "black",
+                      linewidth = 0.4) +
+    ggplot2::annotate("text",
+                      x = (bx$xmin + bx$xmax) / 2, y = ys_title,
+                      label = "Summary", fontface = "bold", size = 3.6) +
+    ggplot2::annotate("text",
+                      x = x_label, y = ys_rows,
+                      label = rows_label,
+                      fontface = "bold", hjust = 0, size = 3.2) +
+    ggplot2::annotate("text",
+                      x = x_value, y = ys_rows,
+                      label = rows_value,
+                      fontface = "plain", hjust = 0, size = 3.2)
 
   p <- p +
     ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
@@ -115,23 +182,16 @@ dta_sroc <- function(fit,
     ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2)) +
     ggplot2::labs(x = "False positive rate (1 - Specificity)",
                   y = "Sensitivity",
-                  title = title,
-                  size  = "Total n") +
-    ggplot2::theme_bw()
+                  title = title_text) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(panel.grid       = ggplot2::element_blank(),
+                   panel.grid.major = ggplot2::element_blank(),
+                   panel.grid.minor = ggplot2::element_blank(),
+                   legend.position  = "none")
 
   if (auc) {
-    auc_res <- .compute_auc(fit, data, auc_method, B, conf,
-                            curve, tp, fp, fn, tn)
-    attr(p, "AUC") <- auc_res$AUC
-    if (!is.null(auc_res$CI)) {
-      attr(p, "AUC_CI") <- auc_res$CI
-      p <- p + ggplot2::labs(subtitle = sprintf(
-        "AUC = %.3f  (%.0f%% boot CI: %.3f, %.3f)",
-        auc_res$AUC, 100 * conf, auc_res$CI[1], auc_res$CI[2]))
-    } else {
-      p <- p + ggplot2::labs(subtitle = sprintf(
-        "AUC = %.3f  (%s)", auc_res$AUC, auc_res$method))
-    }
+    attr(p, "AUC") <- auc_val
+    if (!is.null(auc_ci_pair)) attr(p, "AUC_CI") <- auc_ci_pair
   }
   p
 }

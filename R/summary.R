@@ -134,6 +134,10 @@ print.dta_single <- function(x, digits = 3, ...) {
   cat("  nAGQ = ", x$call_args$nAGQ, "\n\n", sep = "")
   s <- dta_summary(x)
   print(format(s, digits = digits), row.names = FALSE)
+  if (!is.null(x$heterogeneity)) {
+    cat("\n")
+    .print_heterogeneity_block(x$heterogeneity, digits = digits)
+  }
   invisible(x)
 }
 

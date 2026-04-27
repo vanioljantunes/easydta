@@ -1,5 +1,5 @@
 # ============================================================================
-# heterogeneity.R  -  Between-study variance summaries + Zhou-Dendukuri I^2
+# heterogeneity.R  -  Internal between-study variance helpers
 #
 # Reference:
 #   Zhou Y, Dendukuri N (2014). "Statistics for quantifying heterogeneity
@@ -10,32 +10,27 @@
 #   naive Higgins I^2 on Se/Sp separately because of the threshold effect.
 #   The Zhou-Dendukuri formulation below is defined on the bivariate model
 #   and is methodologically defensible in DTA.
+#
+# These helpers are called from inside dta_fit_single() so that the result
+# of the fit already carries the heterogeneity summary; there is no
+# separately exported user-facing dta_heterogeneity() function.
 # ============================================================================
 
-#' Between-study heterogeneity (tau, rho, Zhou-Dendukuri I^2, prediction region)
-#'
-#' @param fit  A `dta_single` object from [dta_fit_single()].
-#' @param conf Confidence level for the prediction region (default 0.95).
-#'
-#' @return An S3 `dta_heterogeneity` object.
-#' @export
-dta_heterogeneity <- function(fit, conf = 0.95) {
-  stopifnot(inherits(fit, "dta_single"))
-
-  Psi <- fit$Psi
+.compute_heterogeneity <- function(fit_obj, conf = 0.95) {
+  Psi <- fit_obj$Psi
   tau_sens <- sqrt(Psi[1, 1])
   tau_spec <- sqrt(Psi[2, 2])
   rho <- if (tau_sens > 0 && tau_spec > 0) {
     Psi[1, 2] / (tau_sens * tau_spec)
   } else NA_real_
 
-  Sigma_bar <- .avg_within_study_vcov(fit$long)
+  Sigma_bar <- .avg_within_study_vcov(fit_obj$long)
 
   I2_sens <- .zd_i2_scalar(Psi[1, 1], Sigma_bar[1, 1])
   I2_spec <- .zd_i2_scalar(Psi[2, 2], Sigma_bar[2, 2])
   I2_biv  <- .zd_i2_scalar(sum(diag(Psi)), sum(diag(Sigma_bar)))
 
-  f <- .fixed_se_sp(fit$fit)
+  f <- .fixed_se_sp(fit_obj$fit)
   V_pred <- f$vcov_fixed + Psi
   pred_region <- .logit_ellipse(
     centre = c(f$lsens, f$lspec),
@@ -43,7 +38,7 @@ dta_heterogeneity <- function(fit, conf = 0.95) {
     conf = conf
   )
 
-  out <- list(
+  list(
     tau_sens    = tau_sens,
     tau_spec    = tau_spec,
     rho         = rho,
@@ -55,8 +50,6 @@ dta_heterogeneity <- function(fit, conf = 0.95) {
     conf        = conf,
     pred_region = pred_region
   )
-  class(out) <- "dta_heterogeneity"
-  out
 }
 
 .avg_within_study_vcov <- function(long) {
@@ -89,25 +82,15 @@ dta_heterogeneity <- function(fit, conf = 0.95) {
   tau2 / denom
 }
 
-#' @export
-print.dta_heterogeneity <- function(x, digits = 3, ...) {
-  cat("<dta_heterogeneity>  Zhou-Dendukuri (2014) bivariate I^2\n\n")
-  cat("  Between-study SDs (logit scale):\n")
-  cat("    tau_sens = ", format(x$tau_sens, digits = digits),
-      "    tau_spec = ", format(x$tau_spec, digits = digits),
-      "    rho = ",      format(x$rho,      digits = digits),
-      "\n\n", sep = "")
-  cat("  Zhou-Dendukuri I^2:\n")
-  cat("    I^2(sens) = ", format(100 * x$I2_sens, digits = digits), "%\n",
+.print_heterogeneity_block <- function(h, digits = 3) {
+  cat("Heterogeneity (Zhou-Dendukuri 2014, bivariate I^2):\n")
+  cat("  tau_sens = ", format(h$tau_sens, digits = digits),
+      "    tau_spec = ", format(h$tau_spec, digits = digits),
+      "    rho = ",      format(h$rho,      digits = digits), "\n", sep = "")
+  cat("  I^2(sens) = ", format(100 * h$I2_sens, digits = digits), "%",
+      "    I^2(spec) = ", format(100 * h$I2_spec, digits = digits), "%",
+      "    I^2(biv) = ", format(100 * h$I2_biv,  digits = digits), "%\n",
       sep = "")
-  cat("    I^2(spec) = ", format(100 * x$I2_spec, digits = digits), "%\n",
-      sep = "")
-  cat("    I^2(biv)  = ", format(100 * x$I2_biv,  digits = digits), "%",
-      "   <-- joint statistic, unaffected by threshold effect\n\n",
-      sep = "")
-  cat("  Note: Cochrane discourages the naive univariate Higgins I^2 on\n")
-  cat("  Se and Sp separately because the threshold effect can inflate it\n")
-  cat("  spuriously.  The Zhou-Dendukuri statistic above is defined on\n")
-  cat("  the bivariate model and is defensible for DTA.\n")
-  invisible(x)
+  cat("  (joint statistic, unaffected by threshold effect)\n")
+  invisible(h)
 }

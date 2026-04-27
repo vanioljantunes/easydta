@@ -28,12 +28,17 @@
 #'   baseline). Increase (e.g. 5, 7) for adaptive Gauss-Hermite quadrature.
 #' @param wide   Logical. If TRUE, `long` is actually wide and will be
 #'   reshaped first.
+#' @param conf   Confidence level used for the prediction-region ellipse
+#'   computed as part of the heterogeneity summary (default 0.95).
 #' @param ...    Forwarded to `dta_reshape()` when `wide = TRUE`.
 #'
-#' @return An S3 object of class `"dta_single"` (a plain list).
+#' @return An S3 object of class `"dta_single"` (a plain list). The object
+#'   carries `$heterogeneity`, a list with `tau_sens`, `tau_spec`, `rho`,
+#'   `I2_sens`, `I2_spec`, `I2_biv` (Zhou-Dendukuri bivariate I^2), and
+#'   `pred_region` (logit-scale ellipse). `print(fit)` shows it.
 #'
 #' @export
-dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, ...) {
+dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, conf = 0.95, ...) {
   if (wide) long <- dta_reshape(long, ...)
   .check_long(long)
 
@@ -48,10 +53,11 @@ dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, ...) {
   out <- list(
     fit        = fit,
     long       = long,
-    call_args  = list(nAGQ = nAGQ),
+    call_args  = list(nAGQ = nAGQ, conf = conf),
     vcov_fixed = stats::vcov(fit),
     Psi        = .random_vcv(fit)
   )
+  out$heterogeneity <- .compute_heterogeneity(out, conf = conf)
   class(out) <- "dta_single"
   out
 }

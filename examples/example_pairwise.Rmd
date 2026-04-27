@@ -7,7 +7,14 @@ output: html_document
 if (!requireNamespace("pacman", quietly = TRUE)) {
   install.packages("pacman")
 }
-pacman::p_load(easydta, ggplot2, grid, gridExtra)
+if (!requireNamespace("remotes", quietly = TRUE)) {
+  install.packages("remotes")
+}
+if (!requireNamespace("easydta", quietly = TRUE)) {
+  remotes::install_github("vanioljantunes/easydta")
+}
+pacman::p_load(ggplot2, grid, gridExtra)
+library(easydta)
 ```
 
 ```{r load_data}
@@ -50,23 +57,14 @@ fit_MRI  <- dta_fit_single(long_MRI)
 ```
 
 ```{r save_forest_CT}
-# Build the wide subset needed by dta_forest() (one row per study, CT arm)
-d_CT <- data.frame(
-  studlab = paste(d$author, d$year),
-  TP = d$TP.e, FP = d$FP.e, FN = d$FN.e, TN = d$TN.e
-)
 png("forest_CT.png", width = 1400, height = 700, res = 150)
-dta_forest(fit_CT, d_CT, studlab = "studlab")
+dta_forest(fit_CT)
 dev.off()
 ```
 
 ```{r save_forest_MRI}
-d_MRI <- data.frame(
-  studlab = paste(d$author, d$year),
-  TP = d$TP.c, FP = d$FP.c, FN = d$FN.c, TN = d$TN.c
-)
 png("forest_MRI.png", width = 1400, height = 700, res = 150)
-dta_forest(fit_MRI, d_MRI, studlab = "studlab")
+dta_forest(fit_MRI)
 dev.off()
 ```
 
@@ -74,8 +72,8 @@ dev.off()
 # Per-arm SROC (separate panels, saved side by side as one image)
 png("sroc_pairwise.png", width = 1800, height = 900, res = 150)
 gridExtra::grid.arrange(
-  dta_sroc(fit_CT,  auc_method = "trapz", title = "CT"),
-  dta_sroc(fit_MRI, auc_method = "trapz", title = "MRI"),
+  dta_sroc(fit_CT,  auc_method = "trapz", test = "CT"),
+  dta_sroc(fit_MRI, auc_method = "trapz", test = "MRI"),
   ncol = 2
 )
 dev.off()
