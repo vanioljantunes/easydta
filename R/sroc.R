@@ -9,19 +9,15 @@
 #
 # AUC: primary method is the bootstrap from `dmetatools::AUC_boot` (Noma
 # et al.), which resamples the bivariate model and yields both a point
-# estimate and a bootstrap CI. Trapezoid integration over the SROC is
-# retained as a fallback when `dmetatools` is not installed or when
-# `auc_method = "trapz"` is requested explicitly.
+# estimate and a bootstrap CI. When `dmetatools` is not installed -- or
+# when `auc_method = "trapz"` is requested explicitly -- we still return
+# a CI: the trapz path runs a parametric MVN bootstrap on the cached
+# fixed-effect VCV (lsens, lspec) and integrates each resampled SROC.
 #
-# Layout: an in-plot summary box is annotated in the bottom-RIGHT corner
-# with Sensitivity / Specificity / AUC (each with CI) and the bivariate
-# Zhou-Dendukuri I^2.  Study points are open triangles, the summary
-# point is a filled black circle, and the confidence/prediction regions
-# are dashed/dotted black lines (close to a Cochrane-style SROC layout).
-# Panel grid lines and the bubble-size legend are suppressed.
-#
-# Install dmetatools from GitHub (CRAN-archived):
-#   remotes::install_github("nomahi/dmetatools")
+# Layout: in-plot summary box and legend box are flush against the
+# bottom-right and bottom-left panel corners (axis expansion is disabled).
+# Study labels are drawn left-aligned next to each triangle so the cluster
+# fans out instead of stacking on top of itself.
 # ============================================================================
 
 #' SROC plot with 95% confidence and prediction regions + AUC
@@ -31,30 +27,30 @@
 #' @param outcome     Outcome name shown in the main title (default "outcome").
 #' @param population  Population name shown in the main title (default
 #'   "population"). The title is rendered as
-#'   `sROC of "<test>" to predict "<outcome>" in "<population>"`.
+#'   `sROC of <test> to predict <outcome> in <population>`.
 #' @param ci          Draw the 95% confidence region?  (default TRUE)
-#' @param pred        Draw the 95% prediction region?  (default FALSE; the
-#'   Cochrane-style layout shows only the confidence region as a dashed loop).
+#' @param pred        Draw the 95% prediction region?  (default TRUE; drawn
+#'   as a dotted loop to distinguish it from the dashed confidence region).
 #' @param labels      Logical. Print study labels next to each triangle?
 #'   (default TRUE)
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
 #' @param auc_method  "boot" (default; uses `dmetatools::AUC_boot`) or
 #'   "trapz" (numerical integration of the SROC curve with `pracma::trapz`;
 #'   automatically used as a fallback if `dmetatools` is not installed).
-#' @param B           Number of bootstrap replicates for "boot" (default 2000).
+#'   In both cases an AUC CI is returned.
+#' @param B           Number of bootstrap replicates (default 2000).
 #' @param conf        Confidence level (default 0.95).
 #' @param n_grid      Grid size for the SROC curve (default 200).
 #'
 #' @return A ggplot object; if `auc = TRUE`, `attr(x, "AUC")` holds the AUC
-#'   point estimate, and for the bootstrap method `attr(x, "AUC_CI")` holds
-#'   the CI.
+#'   point estimate and `attr(x, "AUC_CI")` holds the CI.
 #' @export
 dta_sroc <- function(fit,
                      test       = "test",
                      outcome    = "outcome",
                      population = "population",
                      ci    = TRUE,
-                     pred  = FALSE,
+                     pred  = TRUE,
                      labels = TRUE,
                      auc   = TRUE,
                      auc_method = c("boot", "trapz"),
@@ -110,7 +106,8 @@ dta_sroc <- function(fit,
   auc_text    <- "n/a"
   if (auc) {
     auc_res <- .compute_auc(fit, NULL, auc_method, B, conf, curve,
-                            "TP", "FP", "FN", "TN")
+                            "TP", "FP", "FN", "TN",
+                            slope = slope, fpr_grid = fpr_grid)
     auc_val <- auc_res$AUC
     if (!is.null(auc_res$CI)) {
       auc_ci_pair <- auc_res$CI
@@ -138,20 +135,23 @@ dta_sroc <- function(fit,
     i2_text
   )
 
-  # Bottom-right summary box geometry (overlays the plot).
-  bx <- list(xmin = 0.62, xmax = 1.00, ymin = 0.00, ymax = 0.26)
+  # Bottom-right summary box geometry (overlays the plot, flush to corner).
+  # AUC CI string is ~21 chars wide, so widen the box and tighten the gap
+  # between the label column and the value column.
+  bx <- list(xmin = 0.55, xmax = 1.00, ymin = 0.00, ymax = 0.26)
   ys_title <- bx$ymax - 0.04
   ys_rows  <- seq(ys_title - 0.05, by = -0.05, length.out = 4)
-  x_label  <- bx$xmin + 0.02
-  x_value  <- bx$xmin + 0.15
+  x_label  <- bx$xmin + 0.015
+  x_value  <- bx$xmin + 0.115
 
-  # Bottom-left legend box geometry.
-  lg <- list(xmin = 0.00, xmax = 0.30, ymin = 0.00, ymax = 0.20)
-  lg_rows <- seq(lg$ymax - 0.04, by = -0.045, length.out = 4)
+  # Bottom-left legend box geometry. With pred = TRUE the legend has 5 rows.
+  lg <- list(xmin = 0.00, xmax = 0.30, ymin = 0.00, ymax = 0.235)
+  lg_rows <- seq(lg$ymax - 0.035, by = -0.04, length.out = 5)
   lg_x_sym   <- lg$xmin + 0.03
   lg_x_label <- lg$xmin + 0.07
   legend_text <- c("Study estimates", "sROC curve",
-                   "95% CI region", "Summary point")
+                   "95% CI region", "95% prediction region",
+                   "Summary point")
 
   title_text <- sprintf("sROC of %s to predict %s in %s",
                         test, outcome, population)
@@ -191,12 +191,15 @@ dta_sroc <- function(fit,
 
   if (isTRUE(labels) && nrow(pts) > 0) {
     pts_lab <- pts
-    pts_lab$lab_y <- pmin(pts_lab$tpr + 0.04, 0.99)
+    # Left-anchor the label slightly to the right of each point so the
+    # top-left cluster fans out horizontally instead of stacking.
+    pts_lab$lab_x <- pts_lab$fpr + 0.012
     p <- p +
       ggplot2::geom_text(data = pts_lab,
-                         ggplot2::aes(x = fpr, y = lab_y, label = studlab),
+                         ggplot2::aes(x = lab_x, y = tpr, label = studlab),
                          size = 3, colour = "black",
-                         hjust = 0.5, vjust = 0)
+                         hjust = 0, vjust = 0.5,
+                         check_overlap = TRUE)
   }
 
   # Summary box: white-filled rectangle + bold title + bold labels + plain
@@ -219,14 +222,7 @@ dta_sroc <- function(fit,
                       label = rows_value,
                       fontface = "plain", hjust = 0, size = 3.2)
 
-  # Bottom-left legend box.
-  legend_df <- data.frame(
-    x = lg_x_sym,
-    y = lg_rows,
-    label = legend_text,
-    stringsAsFactors = FALSE
-  )
-  # Symbols: triangle / dashed line / dashed line / filled circle
+  # Bottom-left legend box (5 rows: study / sROC / CI / pred / summary).
   seg_half <- 0.018
   p <- p +
     ggplot2::annotate("rect",
@@ -246,7 +242,12 @@ dta_sroc <- function(fit,
                       y = lg_rows[3], yend = lg_rows[3],
                       colour = "black", linetype = "dashed",
                       linewidth = 0.5) +
-    ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[4],
+    ggplot2::annotate("segment",
+                      x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
+                      y = lg_rows[4], yend = lg_rows[4],
+                      colour = "black", linetype = "dotted",
+                      linewidth = 0.5) +
+    ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[5],
                       shape = 16, size = 3, colour = "black") +
     ggplot2::annotate("text",
                       x = lg_x_label, y = lg_rows,
@@ -254,9 +255,12 @@ dta_sroc <- function(fit,
                       hjust = 0, size = 3.1)
 
   p <- p +
-    ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
-    ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
-    ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+    ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1),
+                             expand = FALSE, clip = "off") +
+    ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2),
+                                expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2),
+                                expand = c(0, 0)) +
     ggplot2::labs(x = "False positive rate (1 - Specificity)",
                   y = "Sensitivity",
                   title = title_text) +
@@ -277,8 +281,11 @@ dta_sroc <- function(fit,
 }
 
 # AUC dispatcher: prefer dmetatools::AUC_boot; fall back to trapezoid.
+# Both paths return a CI -- the trapz path uses a parametric MVN bootstrap
+# on the cached fixed-effect VCV so users without dmetatools still see one.
 .compute_auc <- function(fit, data, auc_method, B, conf,
-                         curve, tp, fp, fn, tn) {
+                         curve, tp, fp, fn, tn,
+                         slope = NULL, fpr_grid = NULL) {
   if (auc_method == "boot") {
     if (!requireNamespace("dmetatools", quietly = TRUE) ||
         !requireNamespace("mada", quietly = TRUE)) {
@@ -289,7 +296,8 @@ dta_sroc <- function(fit,
               "    remotes::install_github('nomahi/dmetatools')",
               call. = FALSE)
       return(.compute_auc(fit, data, "trapz", B, conf, curve,
-                          tp, fp, fn, tn))
+                          tp, fp, fn, tn,
+                          slope = slope, fpr_grid = fpr_grid))
     }
     # AUC_boot calls mada::reitsma() and MASS::mvrnorm() without namespace
     # qualifiers, so both must be attached (not merely loaded).
@@ -305,9 +313,39 @@ dta_sroc <- function(fit,
                 CI  = unname(res$CI),
                 method = "dmetatools::AUC_boot"))
   }
+
   ord <- order(curve$fpr)
   AUC <- pracma::trapz(curve$fpr[ord], curve$tpr[ord])
-  list(AUC = AUC, CI = NULL, method = "trapezoid")
+
+  CI <- .trapz_auc_ci(fit, slope, fpr_grid, B, conf)
+  list(AUC = AUC, CI = CI, method = "trapezoid")
+}
+
+# Parametric MVN bootstrap CI for the trapz AUC.  Samples (lsens, lspec)
+# from N(centre, vcov_fixed) and integrates each resampled SROC over the
+# same FPR grid.  Slope (tau_sens / tau_spec) is held fixed at the point
+# estimate -- a reasonable approximation when the random-effect VCV is
+# itself uncertain and we just need a defensible interval.
+.trapz_auc_ci <- function(fit, slope, fpr_grid, B, conf) {
+  if (is.null(slope) || is.null(fpr_grid) || B <= 1) return(NULL)
+  f <- .fixed_se_sp(fit$fit)
+  centre <- c(f$lsens, f$lspec)
+  V <- f$vcov_fixed
+  draws <- tryCatch(
+    MASS::mvrnorm(n = B, mu = centre, Sigma = V),
+    error = function(e) NULL
+  )
+  if (is.null(draws)) return(NULL)
+  logit_fpr <- stats::qlogis(fpr_grid)
+  logit_sp  <- -logit_fpr
+  ord <- order(fpr_grid)
+  aucs <- apply(draws, 1, function(p) {
+    logit_se <- p[1] - slope * (logit_sp - p[2])
+    tpr <- stats::plogis(logit_se)
+    pracma::trapz(fpr_grid[ord], tpr[ord])
+  })
+  alpha <- 1 - conf
+  unname(stats::quantile(aucs, c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))
 }
 
 # Get the raw TP/FP/FN/TN vectors: prefer user-supplied wide `data`,
