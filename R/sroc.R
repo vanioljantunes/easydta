@@ -33,7 +33,10 @@
 #'   "population"). The title is rendered as
 #'   `sROC of "<test>" to predict "<outcome>" in "<population>"`.
 #' @param ci          Draw the 95% confidence region?  (default TRUE)
-#' @param pred        Draw the 95% prediction region?  (default TRUE)
+#' @param pred        Draw the 95% prediction region?  (default FALSE; the
+#'   Cochrane-style layout shows only the confidence region as a dashed loop).
+#' @param labels      Logical. Print study labels next to each triangle?
+#'   (default TRUE)
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
 #' @param auc_method  "boot" (default; uses `dmetatools::AUC_boot`) or
 #'   "trapz" (numerical integration of the SROC curve with `pracma::trapz`;
@@ -51,7 +54,8 @@ dta_sroc <- function(fit,
                      outcome    = "outcome",
                      population = "population",
                      ci    = TRUE,
-                     pred  = TRUE,
+                     pred  = FALSE,
+                     labels = TRUE,
                      auc   = TRUE,
                      auc_method = c("boot", "trapz"),
                      B     = 2000,
@@ -73,13 +77,17 @@ dta_sroc <- function(fit,
   curve <- data.frame(fpr = fpr_grid, tpr = tpr_grid)
 
   studies <- split(fit$long, fit$long$studlab)
-  pts <- do.call(rbind, lapply(studies, function(s) {
-    r_sens <- s[s$sens == 1, ]; r_spec <- s[s$spec == 1, ]
+  pts <- do.call(rbind, lapply(names(studies), function(nm) {
+    s <- studies[[nm]]
+    r_sens <- s[s$sens == 1, ]
+    r_spec <- s[s$spec == 1, ]
     tp <- r_sens$true; n1 <- r_sens$n
     tn <- r_spec$true; n0 <- r_spec$n
-    data.frame(fpr = (n0 - tn) / n0,
+    data.frame(studlab = nm,
+               fpr = (n0 - tn) / n0,
                tpr = tp / n1,
-               n_total = n1 + n0)
+               n_total = n1 + n0,
+               stringsAsFactors = FALSE)
   }))
   rownames(pts) <- NULL
 
@@ -130,13 +138,20 @@ dta_sroc <- function(fit,
     i2_text
   )
 
-  # Box geometry: glued to the bottom-right corner of the panel
-  # (overlays the plot rather than reserving space inside it).
-  bx <- list(xmin = 0.58, xmax = 1.00, ymin = 0.00, ymax = 0.30)
+  # Bottom-right summary box geometry (overlays the plot).
+  bx <- list(xmin = 0.62, xmax = 1.00, ymin = 0.00, ymax = 0.26)
   ys_title <- bx$ymax - 0.04
-  ys_rows  <- seq(ys_title - 0.06, by = -0.06, length.out = 4)
+  ys_rows  <- seq(ys_title - 0.05, by = -0.05, length.out = 4)
   x_label  <- bx$xmin + 0.02
-  x_value  <- bx$xmin + 0.16
+  x_value  <- bx$xmin + 0.15
+
+  # Bottom-left legend box geometry.
+  lg <- list(xmin = 0.00, xmax = 0.30, ymin = 0.00, ymax = 0.20)
+  lg_rows <- seq(lg$ymax - 0.04, by = -0.045, length.out = 4)
+  lg_x_sym   <- lg$xmin + 0.03
+  lg_x_label <- lg$xmin + 0.07
+  legend_text <- c("Study estimates", "sROC curve",
+                   "95% CI region", "Summary point")
 
   title_text <- sprintf("sROC of %s to predict %s in %s",
                         test, outcome, population)
@@ -163,7 +178,9 @@ dta_sroc <- function(fit,
   p <- p +
     ggplot2::geom_line(data = curve,
                        ggplot2::aes(x = fpr, y = tpr),
-                       colour = "black", linewidth = 0.8) +
+                       colour = "black",
+                       linetype = "dashed",
+                       linewidth = 0.5) +
     ggplot2::geom_point(data = pts,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 2, size = 2.4, colour = "black",
@@ -171,6 +188,16 @@ dta_sroc <- function(fit,
     ggplot2::geom_point(data = summary_pt,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 16, size = 3.5, colour = "black")
+
+  if (isTRUE(labels) && nrow(pts) > 0) {
+    pts_lab <- pts
+    pts_lab$lab_y <- pmin(pts_lab$tpr + 0.04, 0.99)
+    p <- p +
+      ggplot2::geom_text(data = pts_lab,
+                         ggplot2::aes(x = fpr, y = lab_y, label = studlab),
+                         size = 3, colour = "black",
+                         hjust = 0.5, vjust = 0)
+  }
 
   # Summary box: white-filled rectangle + bold title + bold labels + plain
   # values, all positioned in plot coordinates (bottom-right corner).
@@ -191,6 +218,40 @@ dta_sroc <- function(fit,
                       x = x_value, y = ys_rows,
                       label = rows_value,
                       fontface = "plain", hjust = 0, size = 3.2)
+
+  # Bottom-left legend box.
+  legend_df <- data.frame(
+    x = lg_x_sym,
+    y = lg_rows,
+    label = legend_text,
+    stringsAsFactors = FALSE
+  )
+  # Symbols: triangle / dashed line / dashed line / filled circle
+  seg_half <- 0.018
+  p <- p +
+    ggplot2::annotate("rect",
+                      xmin = lg$xmin, xmax = lg$xmax,
+                      ymin = lg$ymin, ymax = lg$ymax,
+                      fill = "white", colour = "black",
+                      linewidth = 0.4) +
+    ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[1],
+                      shape = 2, size = 2.4, colour = "black") +
+    ggplot2::annotate("segment",
+                      x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
+                      y = lg_rows[2], yend = lg_rows[2],
+                      colour = "black", linetype = "dashed",
+                      linewidth = 0.5) +
+    ggplot2::annotate("segment",
+                      x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
+                      y = lg_rows[3], yend = lg_rows[3],
+                      colour = "black", linetype = "dashed",
+                      linewidth = 0.5) +
+    ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[4],
+                      shape = 16, size = 3, colour = "black") +
+    ggplot2::annotate("text",
+                      x = lg_x_label, y = lg_rows,
+                      label = legend_text,
+                      hjust = 0, size = 3.1)
 
   p <- p +
     ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
