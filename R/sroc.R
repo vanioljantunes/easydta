@@ -16,8 +16,10 @@
 #
 # Layout: in-plot summary box and legend box are flush against the
 # bottom-right and bottom-left panel corners (axis expansion is disabled).
-# Study labels are drawn left-aligned next to each triangle so the cluster
-# fans out instead of stacking on top of itself.
+# Both boxes share the same height; the summary box auto-sizes its width
+# to the widest "label value" pair so it never bloats beyond what the
+# numbers require.  The sROC curve is solid black and the 95% prediction
+# region is dotted red so it is visually distinct from the dashed CI loop.
 # ============================================================================
 
 #' SROC plot with 95% confidence and prediction regions + AUC
@@ -30,9 +32,11 @@
 #'   `sROC of <test> to predict <outcome> in <population>`.
 #' @param ci          Draw the 95% confidence region?  (default TRUE)
 #' @param pred        Draw the 95% prediction region?  (default TRUE; drawn
-#'   as a dotted loop to distinguish it from the dashed confidence region).
+#'   as a red dotted loop to distinguish it from the dashed CI region).
 #' @param labels      Logical. Print study labels next to each triangle?
-#'   (default TRUE)
+#'   (default TRUE).  Labels are drawn on top of the panel and are allowed
+#'   to overlap each other and the sROC curve -- they never reposition the
+#'   underlying study points.
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
 #' @param auc_method  "boot" (default; uses `dmetatools::AUC_boot`) or
 #'   "trapz" (numerical integration of the SROC curve with `pracma::trapz`;
@@ -135,18 +139,47 @@ dta_sroc <- function(fit,
     i2_text
   )
 
-  # Bottom-right summary box geometry (overlays the plot, flush to corner).
-  # AUC CI string is ~21 chars wide, so widen the box and tighten the gap
-  # between the label column and the value column.
-  bx <- list(xmin = 0.55, xmax = 1.00, ymin = 0.00, ymax = 0.26)
-  ys_title <- bx$ymax - 0.04
-  ys_rows  <- seq(ys_title - 0.05, by = -0.05, length.out = 4)
-  x_label  <- bx$xmin + 0.015
-  x_value  <- bx$xmin + 0.115
+  # ---- Box geometry --------------------------------------------------------
+  # Both boxes share the same height (matches the legend on the left).
+  # The summary box on the right auto-sizes its width to the widest
+  # "label value" pair so it stays as tight as possible against the
+  # bottom-right corner.
+  box_h     <- 0.235
+  text_size <- 3.2
+  # Approximate character width in plot units for ggplot::annotate text
+  # at size = 3.2 on a roughly square panel saved at ~150 dpi.  This is a
+  # heuristic, not a measurement -- generous enough to avoid clipping.
+  char_w  <- 0.0125
+  pad_x   <- 0.012   # horizontal padding inside the box
+  gap_lv  <- 0.005   # tiny gap between the label column and the value text
 
-  # Bottom-left legend box geometry. With pred = TRUE the legend has 5 rows.
-  lg <- list(xmin = 0.00, xmax = 0.30, ymin = 0.00, ymax = 0.235)
-  lg_rows <- seq(lg$ymax - 0.035, by = -0.04, length.out = 5)
+  label_w <- max(nchar(rows_label)) * char_w
+  value_w <- max(nchar(rows_value)) * char_w
+  box_title <- sprintf("%s summary", test)
+  # Bold title rendered slightly wider than plain text.
+  title_w <- nchar(box_title) * char_w * 1.10
+
+  inner_w <- max(label_w + gap_lv + value_w, title_w)
+  box_w   <- inner_w + 2 * pad_x
+
+  bx <- list(xmin = 1 - box_w, xmax = 1.00,
+             ymin = 0.00,      ymax = box_h)
+
+  # Vertical layout: title row at the top, then 4 evenly-spaced data rows.
+  ys_title <- bx$ymax - 0.030
+  row_step <- 0.045
+  ys_rows  <- seq(ys_title - row_step, by = -row_step, length.out = 4)
+
+  # Right-anchor the label at the separator, left-anchor the value just
+  # after it, so "Sens =" sits flush against "0.93 (0.91-0.95)".
+  x_separator <- bx$xmin + pad_x + label_w
+  x_label_anchor <- x_separator                 # hjust = 1
+  x_value_anchor <- x_separator + gap_lv        # hjust = 0
+
+  # Bottom-left legend box (5 rows: study / sROC / CI / pred / summary).
+  lg <- list(xmin = 0.00, xmax = 0.30,
+             ymin = 0.00, ymax = box_h)
+  lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = 5)
   lg_x_sym   <- lg$xmin + 0.03
   lg_x_label <- lg$xmin + 0.07
   legend_text <- c("Study estimates", "sROC curve",
@@ -155,7 +188,6 @@ dta_sroc <- function(fit,
 
   title_text <- sprintf("sROC of %s to predict %s in %s",
                         test, outcome, population)
-  box_title  <- sprintf("%s summary", test)
 
   # ---- Build plot ----------------------------------------------------------
   p <- ggplot2::ggplot()
@@ -170,17 +202,17 @@ dta_sroc <- function(fit,
   if (!is.null(pr_df)) {
     p <- p + ggplot2::geom_path(data = pr_df,
                                 ggplot2::aes(x = fpr, y = tpr),
-                                colour = "black",
+                                colour = "red",
                                 linetype = "dotted",
-                                linewidth = 0.5)
+                                linewidth = 0.6)
   }
 
   p <- p +
     ggplot2::geom_line(data = curve,
                        ggplot2::aes(x = fpr, y = tpr),
                        colour = "black",
-                       linetype = "dashed",
-                       linewidth = 0.5) +
+                       linetype = "solid",
+                       linewidth = 0.6) +
     ggplot2::geom_point(data = pts,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 2, size = 2.4, colour = "black",
@@ -191,19 +223,20 @@ dta_sroc <- function(fit,
 
   if (isTRUE(labels) && nrow(pts) > 0) {
     pts_lab <- pts
-    # Left-anchor the label slightly to the right of each point so the
-    # top-left cluster fans out horizontally instead of stacking.
+    # Left-anchor the label slightly to the right of each point.  Labels
+    # are allowed to overlap each other and the sROC line -- they never
+    # reposition the underlying study points.
     pts_lab$lab_x <- pts_lab$fpr + 0.012
     p <- p +
       ggplot2::geom_text(data = pts_lab,
                          ggplot2::aes(x = lab_x, y = tpr, label = studlab),
                          size = 3, colour = "black",
-                         hjust = 0, vjust = 0.5,
-                         check_overlap = TRUE)
+                         hjust = 0, vjust = 0.5)
   }
 
-  # Summary box: white-filled rectangle + bold title + bold labels + plain
-  # values, all positioned in plot coordinates (bottom-right corner).
+  # Summary box: white-filled rectangle + bold title + bold label column
+  # right-anchored at the separator + plain value column left-anchored
+  # immediately after, so labels and values sit flush.
   p <- p +
     ggplot2::annotate("rect",
                       xmin = bx$xmin, xmax = bx$xmax,
@@ -212,15 +245,16 @@ dta_sroc <- function(fit,
                       linewidth = 0.4) +
     ggplot2::annotate("text",
                       x = (bx$xmin + bx$xmax) / 2, y = ys_title,
-                      label = box_title, fontface = "bold", size = 3.6) +
+                      label = box_title, fontface = "bold",
+                      size = text_size + 0.4) +
     ggplot2::annotate("text",
-                      x = x_label, y = ys_rows,
+                      x = x_label_anchor, y = ys_rows,
                       label = rows_label,
-                      fontface = "bold", hjust = 0, size = 3.2) +
+                      fontface = "bold", hjust = 1, size = text_size) +
     ggplot2::annotate("text",
-                      x = x_value, y = ys_rows,
+                      x = x_value_anchor, y = ys_rows,
                       label = rows_value,
-                      fontface = "plain", hjust = 0, size = 3.2)
+                      fontface = "plain", hjust = 0, size = text_size)
 
   # Bottom-left legend box (5 rows: study / sROC / CI / pred / summary).
   seg_half <- 0.018
@@ -235,8 +269,8 @@ dta_sroc <- function(fit,
     ggplot2::annotate("segment",
                       x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
                       y = lg_rows[2], yend = lg_rows[2],
-                      colour = "black", linetype = "dashed",
-                      linewidth = 0.5) +
+                      colour = "black", linetype = "solid",
+                      linewidth = 0.6) +
     ggplot2::annotate("segment",
                       x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
                       y = lg_rows[3], yend = lg_rows[3],
@@ -245,8 +279,8 @@ dta_sroc <- function(fit,
     ggplot2::annotate("segment",
                       x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
                       y = lg_rows[4], yend = lg_rows[4],
-                      colour = "black", linetype = "dotted",
-                      linewidth = 0.5) +
+                      colour = "red", linetype = "dotted",
+                      linewidth = 0.6) +
     ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[5],
                       shape = 16, size = 3, colour = "black") +
     ggplot2::annotate("text",
