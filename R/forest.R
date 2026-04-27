@@ -215,8 +215,6 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
     df$point_size  <- ifelse(df$is_sum, 4, 2)
     ggplot2::ggplot(df, ggplot2::aes(x = est, y = ypos)) +
       zebra_layer() +
-      ggplot2::geom_vline(xintercept = c(0, 0.5, 1),
-                          colour = "grey80", linetype = "dotted") +
       ggplot2::geom_errorbar(ggplot2::aes(xmin = lci, xmax = uci),
                              width = 0.25, orientation = "y") +
       ggplot2::geom_point(ggplot2::aes(shape = point_shape,
@@ -233,6 +231,8 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
                      axis.text.y      = ggplot2::element_blank(),
                      axis.ticks.y     = ggplot2::element_blank(),
                      axis.title.y     = ggplot2::element_blank(),
+                     panel.grid       = ggplot2::element_blank(),
+                     panel.grid.major = ggplot2::element_blank(),
                      panel.grid.minor = ggplot2::element_blank()) +
       ggplot2::labs(x = title)
   }
@@ -240,9 +240,26 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
   p_se <- make_panel(se_df, "Sensitivity (95% CI)")
   p_sp <- make_panel(sp_df, "Specificity (95% CI)")
 
+  # Footer: bivariate Zhou-Dendukuri I^2 (and per-axis I^2 for context).
+  het <- fit$heterogeneity
+  if (!is.null(het)) {
+    footer_text <- sprintf(
+      "Heterogeneity (Zhou-Dendukuri 2014): I²(sens) = %.1f%%   I²(spec) = %.1f%%   I²(biv) = %.1f%%",
+      100 * het$I2_sens, 100 * het$I2_spec, 100 * het$I2_biv
+    )
+  } else {
+    footer_text <- "Heterogeneity: not computed (fit$heterogeneity missing)"
+  }
+  footer_grob <- grid::textGrob(
+    footer_text,
+    x = grid::unit(0.02, "npc"), hjust = 0,
+    gp = grid::gpar(fontsize = 10, fontface = "italic")
+  )
+
   gridExtra::grid.arrange(
     p_labels, p_se, p_se_txt, p_sp, p_sp_txt,
     ncol = 5,
-    widths = c(3.0, 1.8, 1.6, 1.8, 1.6)
+    widths = c(3.0, 1.8, 1.6, 1.8, 1.6),
+    bottom = footer_grob
   )
 }

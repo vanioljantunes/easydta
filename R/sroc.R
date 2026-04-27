@@ -130,14 +130,15 @@ dta_sroc <- function(fit,
     i2_text
   )
 
-  # Box geometry: bottom-right corner in plot coordinates ([0,1] x [0,1]).
-  bx <- list(xmin = 0.55, xmax = 0.98, ymin = 0.02, ymax = 0.34)
+  # Box geometry: glued to the bottom-right corner of the panel
+  # (overlays the plot rather than reserving space inside it).
+  bx <- list(xmin = 0.58, xmax = 1.00, ymin = 0.00, ymax = 0.30)
   ys_title <- bx$ymax - 0.04
-  ys_rows  <- seq(ys_title - 0.05, by = -0.06, length.out = 4)
+  ys_rows  <- seq(ys_title - 0.06, by = -0.06, length.out = 4)
   x_label  <- bx$xmin + 0.02
   x_value  <- bx$xmin + 0.16
 
-  title_text <- sprintf('sROC of "%s" to predict "%s" in "%s"',
+  title_text <- sprintf("sROC of %s to predict %s in %s",
                         test, outcome, population)
   box_title  <- sprintf("%s summary", test)
 
@@ -202,7 +203,10 @@ dta_sroc <- function(fit,
     ggplot2::theme(panel.grid       = ggplot2::element_blank(),
                    panel.grid.major = ggplot2::element_blank(),
                    panel.grid.minor = ggplot2::element_blank(),
-                   legend.position  = "none")
+                   legend.position  = "none",
+                   plot.title       = ggplot2::element_text(face = "bold",
+                                                            hjust = 0.5,
+                                                            size = 13))
 
   if (auc) {
     attr(p, "AUC") <- auc_val
