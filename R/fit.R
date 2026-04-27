@@ -214,6 +214,72 @@ dta_pairwise <- function(data,
   out
 }
 
+#' One-call test-comparison meta-analysis (covariate / unpaired design)
+#'
+#' Sister of [dta_pairwise()] for the case where two diagnostic tests are
+#' compared via a between-study covariate (Cochrane Handbook chapter 10 /
+#' Appendix 14) rather than a paired within-study design.  Each row of
+#' `data` is one study with a single 2x2 table; the `test_var` column
+#' carries the test type and must have exactly two levels.  The pipeline
+#' is the same as `dta_pairwise()`:
+#'   1. `dta_reshape()` (carrying `test_var` as `extra`)
+#'   2. `dta_fit_pairwise()` -> nested LR-test models
+#'   3. `dta_compare()`      -> LR tests + Se/Sp differences
+#'   4. `dta_fit_single()` per arm, keyed by the two `test_var` levels.
+#'
+#' @param data      Data frame, one row per study, with a 2x2 table and a
+#'   two-level test-type column.
+#' @param test_var  Name (string) of the test-type column.
+#' @param studlab   Column name of the study label (default `"studlab"`).
+#' @param tp,fp,fn,tn  Column names for the 2x2 counts.
+#' @param nAGQ      Integer; Laplace by default.
+#' @param conf      Confidence level (default 0.95).
+#'
+#' @return An S3 object of class `"dta_pairwise_result"` (same shape as
+#'   the return of `dta_pairwise()`).
+#'
+#' @export
+dta_compare_tests <- function(data,
+                              test_var,
+                              studlab = "studlab",
+                              tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+                              nAGQ = 1L,
+                              conf = 0.95) {
+  stopifnot(is.data.frame(data))
+  if (missing(test_var) || is.null(test_var)) {
+    stop("`test_var` is required (the column carrying the test type).")
+  }
+  if (!test_var %in% names(data)) {
+    stop("test_var '", test_var, "' not found in data.")
+  }
+
+  long <- dta_reshape(data,
+                      tp = tp, fp = fp, fn = fn, tn = tn,
+                      studlab = studlab,
+                      extra   = test_var)
+
+  pair <- dta_fit_pairwise(long, test_var = test_var, nAGQ = nAGQ)
+  cmp  <- dta_compare(pair, conf = conf)
+
+  levs <- pair$levels
+  arm_rows <- function(label) long[long[[test_var]] == label, , drop = FALSE]
+  fits <- lapply(levs, function(lv) {
+    dta_fit_single(arm_rows(lv), nAGQ = nAGQ, conf = conf)
+  })
+  arms <- stats::setNames(fits, levs)
+
+  out <- list(
+    long     = long,
+    pair     = pair,
+    compare  = cmp,
+    arms     = arms,
+    labels   = list(intervention = levs[1], control = levs[2]),
+    test_var = test_var
+  )
+  class(out) <- "dta_pairwise_result"
+  out
+}
+
 #' @export
 print.dta_pairwise_result <- function(x, ...) {
   cat("<dta_pairwise_result>  One-call pairwise DTA analysis\n")

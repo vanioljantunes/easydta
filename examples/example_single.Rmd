@@ -1,5 +1,5 @@
 ---
-title: "easydta: single-test DTA meta-analysis (CT)"
+title: "easydta: single-test DTA meta-analysis (anti-CCP2)"
 output: html_document
 ---
 
@@ -13,13 +13,17 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 if (!requireNamespace("easydta", quietly = TRUE)) {
   remotes::install_github("vanioljantunes/easydta")
 }
-pacman::p_load(ggplot2, grid, gridExtra)
-library(easydta)
+pacman::p_load(ggplot2, grid, gridExtra, easydta)
 ```
 
 ```{r load_data}
-path <- system.file("extdata/ct_single.csv", package = "easydta")
+# Cochrane Handbook chapter 10 / Appendix 14 anti-CCP dataset
+# (Nishimura et al. systematic review).  Each row is one study with a
+# 2x2 table; `generation` carries the test type (CCP1 vs CCP2).
+path <- system.file("extdata/anti_ccp.csv", package = "easydta")
 d <- utils::read.csv(path, stringsAsFactors = FALSE)
+# For the single-test demo we restrict to the larger CCP2 subset.
+d <- d[d$generation == "CCP2", ]
 head(d)
 ```
 
@@ -31,14 +35,16 @@ print(fit)
 ```
 
 ```{r save_forest}
-png("forest_ct.png", width = 1400, height = 1000, res = 150)
+png("forest_ccp2.png", width = 1400, height = 1000, res = 150)
 dta_forest(fit)
 dev.off()
 ```
 
 ```{r save_sroc}
-png("sroc_ct.png", width = 1200, height = 1000, res = 150)
-p <- dta_sroc(fit)
+png("sroc_ccp2.png", width = 1200, height = 1000, res = 150)
+p <- dta_sroc(fit, test = "anti-CCP2",
+              outcome = "rheumatoid arthritis",
+              population = "adults")
 print(p)
 dev.off()
 ```

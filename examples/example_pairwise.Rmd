@@ -1,5 +1,5 @@
 ---
-title: "easydta: pairwise DTA meta-analysis (CT vs MRI, paired design)"
+title: "easydta: test-comparison DTA meta-analysis (anti-CCP1 vs CCP2)"
 output: html_document
 ---
 
@@ -13,48 +13,50 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 if (!requireNamespace("easydta", quietly = TRUE)) {
   remotes::install_github("vanioljantunes/easydta")
 }
-pacman::p_load(ggplot2, grid, gridExtra)
-library(easydta)
+pacman::p_load(ggplot2, grid, gridExtra, easydta)
 ```
 
 ```{r load_data}
-path <- system.file("extdata/ct_mri.csv", package = "easydta")
+# Cochrane Handbook chapter 10 / Appendix 14 anti-CCP dataset
+# (Nishimura et al.).  Two test generations (CCP1, CCP2) compared as a
+# between-study covariate -- this matches Cochrane Figure 10.4.a.
+path <- system.file("extdata/anti_ccp.csv", package = "easydta")
 d <- utils::read.csv(path, stringsAsFactors = FALSE)
 head(d)
 ```
 
 ```{r analyse}
-# One call: reshape + pairwise LR fit + comparison + per-arm single fits.
-res <- dta_pairwise(
-  d,
-  author       = "author",
-  year         = "year",
-  intervention = "CT",
-  control      = "MRI",
-  tp.e = "TP.e", fp.e = "FP.e", fn.e = "FN.e", tn.e = "TN.e",
-  tp.c = "TP.c", fp.c = "FP.c", fn.c = "FN.c", tn.c = "TN.c"
-)
+# One call for the covariate / unpaired comparison: reshape + LR fit +
+# comparison + per-arm single fits, keyed by the `generation` column.
+res <- dta_compare_tests(d, test_var = "generation")
 print(res)
 ```
 
-```{r save_forest_CT}
-png("forest_CT.png", width = 1400, height = 700, res = 150)
-dta_forest(res$arms[["CT"]])
+```{r save_forest_CCP1}
+png("forest_CCP1.png", width = 1400, height = 700, res = 150)
+dta_forest(res$arms[["CCP1"]])
 dev.off()
 ```
 
-```{r save_forest_MRI}
-png("forest_MRI.png", width = 1400, height = 700, res = 150)
-dta_forest(res$arms[["MRI"]])
+```{r save_forest_CCP2}
+png("forest_CCP2.png", width = 1400, height = 1000, res = 150)
+dta_forest(res$arms[["CCP2"]])
 dev.off()
 ```
 
 ```{r save_sroc_pairwise}
-# Per-arm SROC (separate panels, saved side by side as one image)
+# Per-arm SROC (separate panels, saved side by side -- matches the
+# layout of Cochrane Handbook Figure 10.4.a).
 png("sroc_pairwise.png", width = 1800, height = 900, res = 150)
 gridExtra::grid.arrange(
-  dta_sroc(res$arms[["CT"]],  auc_method = "trapz", test = "CT"),
-  dta_sroc(res$arms[["MRI"]], auc_method = "trapz", test = "MRI"),
+  dta_sroc(res$arms[["CCP1"]], auc_method = "trapz",
+           test = "anti-CCP1",
+           outcome = "rheumatoid arthritis",
+           population = "adults"),
+  dta_sroc(res$arms[["CCP2"]], auc_method = "trapz",
+           test = "anti-CCP2",
+           outcome = "rheumatoid arthritis",
+           population = "adults"),
   ncol = 2
 )
 dev.off()
