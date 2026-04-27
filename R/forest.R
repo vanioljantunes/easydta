@@ -13,10 +13,19 @@
 # the summary row uses the bivariate glmer fixed-effect Se/Sp with
 # Wald CI on logit scale, then back-transformed by plogis().
 #
-# Row alignment: ALL five panels share the same x-axis space at the bottom
-# (the non-CI panels render an invisible axis with `colour = NA` to keep
-# the same vertical space), so the inner panel areas have identical
-# heights and study rows line up exactly across all panels.
+# Layout:
+#   - Each panel uses an identical y range [0.5, summary_idx + 1.5] so
+#     all five panels share the same vertical layout.
+#   - The header row (column titles) is rendered as in-data geom_text at
+#     y = summary_idx + 1, in bold.  Using in-data labels rather than
+#     plot.title means the column titles align across panels regardless
+#     of axis-area heights.
+#   - Non-CI panels render an invisible (colour = NA) x-axis at the
+#     bottom so their inner panel-area heights match the CI panels'
+#     (which carry visible axis ticks/title), and study rows line up.
+#   - The label panel places the studlab and each integer count via
+#     separate geom_text layers at explicit x positions, so column
+#     content cannot overrun the panel width.
 #
 # Zebra shading alternates row backgrounds across all five panels for
 # readability; the summary row is never striped.
@@ -81,12 +90,31 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
   se_df$ypos <- (summary_idx + 1) - se_df$idx
   sp_df$ypos <- (summary_idx + 1) - sp_df$idx
 
-  fmt <- function(e, l, u, d) sprintf(sprintf("%%.%df (%%.%df-%%.%df)", d, d, d),
-                                       e, l, u)
+  fmt <- function(e, l, u, d) {
+    fstr <- sprintf("%%.%df (%%.%df-%%.%df)", d, d, d)
+    sprintf(fstr, e, l, u)
+  }
   se_df$txt <- fmt(se_df$est, se_df$lci, se_df$uci, digits)
   sp_df$txt <- fmt(sp_df$est, sp_df$lci, sp_df$uci, digits)
 
-  # Zebra shading: stripe every other study row; never stripe the summary.
+  # Build the label panel data frame.
+  all_studlab <- c(studs, "Summary")
+  label_df <- data.frame(
+    ypos    = se_df$ypos,
+    studlab = all_studlab[se_df$idx],
+    TP      = ifelse(se_df$idx == summary_idx, "", as.character(c(TP_v, NA)[se_df$idx])),
+    FN      = ifelse(se_df$idx == summary_idx, "", as.character(c(FN_v, NA)[se_df$idx])),
+    TN      = ifelse(se_df$idx == summary_idx, "", as.character(c(TN_v, NA)[se_df$idx])),
+    FP      = ifelse(se_df$idx == summary_idx, "", as.character(c(FP_v, NA)[se_df$idx])),
+    stringsAsFactors = FALSE
+  )
+
+  # Common y range so every panel renders rows at identical y pixels.
+  header_y  <- summary_idx + 1
+  ylim_full <- c(0.5, header_y + 0.5)
+
+  # Zebra shading: stripe every other study row; never stripe the summary
+  # or the header.
   stripe_idx <- seq_len(nrow_d)
   stripe_idx <- stripe_idx[stripe_idx %% 2L == 1L]
   zebra_df <- data.frame(
@@ -102,35 +130,6 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
     )
   }
 
-  # ----- Label panel: studlab + TP + FN + TN + FP --------------------------
-  fmt_int <- function(x) formatC(x, width = 4)              # right-aligned
-  fmt_lab <- function(x, w = 22) {
-    s <- substr(x, 1, w)
-    formatC(s, width = -w, flag = "-")                       # left-aligned
-  }
-
-  study_rows <- sprintf("%s %s %s %s %s",
-                        fmt_lab(studs),
-                        fmt_int(TP_v),
-                        fmt_int(FN_v),
-                        fmt_int(TN_v),
-                        fmt_int(FP_v))
-  summary_row <- sprintf("%-22s %4s %4s %4s %4s",
-                         "Summary", "", "", "", "")
-
-  label_text <- ifelse(se_df$study == "Summary",
-                       summary_row,
-                       study_rows[match(se_df$idx, seq_len(nrow_d))])
-
-  label_df <- data.frame(
-    ypos  = se_df$ypos,
-    label = label_text,
-    stringsAsFactors = FALSE
-  )
-
-  header_label <- sprintf("%-22s %4s %4s %4s %4s",
-                          "Study", "TP", "FN", "TN", "FP")
-
   # Common theme for non-CI panels: keeps the bottom axis space (so the
   # inner panel rectangles have the same height as the CI panels, which
   # have visible x-axis ticks/title/labels), but renders that area in NA
@@ -143,26 +142,71 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
     axis.title.x = ggplot2::element_text(colour = NA),
     axis.title.y = ggplot2::element_blank(),
     panel.grid   = ggplot2::element_blank(),
-    panel.border = ggplot2::element_rect(colour = NA, fill = NA),
-    plot.title   = ggplot2::element_text(family = "mono",
-                                         size = 9, hjust = 0)
+    panel.border = ggplot2::element_rect(colour = NA, fill = NA)
   )
 
-  text_panel <- function(df, lab_col, title) {
-    ggplot2::ggplot(df, ggplot2::aes(x = 0, y = ypos,
-                                     label = .data[[lab_col]])) +
+  # ----- Label panel: 5 columns at fixed x positions ------------------------
+  x_studlab <- 0.00
+  x_TP      <- 0.62
+  x_FN      <- 0.74
+  x_TN      <- 0.87
+  x_FP      <- 1.00
+  hdr_size  <- 3.2
+  cell_size <- 3.0
+
+  p_labels <- ggplot2::ggplot(label_df, ggplot2::aes(y = ypos)) +
+    zebra_layer() +
+    # Per-row data
+    ggplot2::geom_text(ggplot2::aes(label = studlab),
+                       x = x_studlab, hjust = 0, size = cell_size) +
+    ggplot2::geom_text(ggplot2::aes(label = TP),
+                       x = x_TP, hjust = 1, size = cell_size) +
+    ggplot2::geom_text(ggplot2::aes(label = FN),
+                       x = x_FN, hjust = 1, size = cell_size) +
+    ggplot2::geom_text(ggplot2::aes(label = TN),
+                       x = x_TN, hjust = 1, size = cell_size) +
+    ggplot2::geom_text(ggplot2::aes(label = FP),
+                       x = x_FP, hjust = 1, size = cell_size) +
+    # Header row at y = header_y
+    ggplot2::annotate("text", x = x_studlab, y = header_y,
+                      label = "Study", hjust = 0,
+                      fontface = "bold", size = hdr_size) +
+    ggplot2::annotate("text", x = x_TP, y = header_y,
+                      label = "TP", hjust = 1,
+                      fontface = "bold", size = hdr_size) +
+    ggplot2::annotate("text", x = x_FN, y = header_y,
+                      label = "FN", hjust = 1,
+                      fontface = "bold", size = hdr_size) +
+    ggplot2::annotate("text", x = x_TN, y = header_y,
+                      label = "TN", hjust = 1,
+                      fontface = "bold", size = hdr_size) +
+    ggplot2::annotate("text", x = x_FP, y = header_y,
+                      label = "FP", hjust = 1,
+                      fontface = "bold", size = hdr_size) +
+    ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
+    ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+    ggplot2::theme_bw() +
+    invisible_axis +
+    ggplot2::labs(x = " ")
+
+  # ----- Sens / Spec value text panels --------------------------------------
+  text_value_panel <- function(df, title) {
+    ggplot2::ggplot(df, ggplot2::aes(y = ypos)) +
       zebra_layer() +
-      ggplot2::geom_text(hjust = 0, size = 3, family = "mono") +
-      ggplot2::coord_cartesian(xlim = c(0, 1)) +
+      ggplot2::geom_text(ggplot2::aes(label = txt),
+                         x = 0.05, hjust = 0, size = cell_size) +
+      ggplot2::annotate("text", x = 0.05, y = header_y,
+                        label = title, hjust = 0,
+                        fontface = "bold", size = hdr_size) +
+      ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
       ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
       ggplot2::theme_bw() +
       invisible_axis +
-      ggplot2::labs(title = title, x = " ")
+      ggplot2::labs(x = " ")
   }
 
-  p_labels <- text_panel(label_df, "label", header_label)
-  p_se_txt <- text_panel(se_df,    "txt",   "Sens (95% CI)")
-  p_sp_txt <- text_panel(sp_df,    "txt",   "Spec (95% CI)")
+  p_se_txt <- text_value_panel(se_df, "Sens (95% CI)")
+  p_sp_txt <- text_value_panel(sp_df, "Spec (95% CI)")
 
   # ----- Sensitivity / Specificity CI panels --------------------------------
   make_panel <- function(df, title) {
@@ -177,18 +221,20 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
                              width = 0.25, orientation = "y") +
       ggplot2::geom_point(ggplot2::aes(shape = point_shape,
                                        size  = point_size)) +
+      ggplot2::annotate("text", x = 0.5, y = header_y,
+                        label = title, fontface = "bold", size = hdr_size) +
       ggplot2::scale_shape_identity() +
       ggplot2::scale_size_identity() +
       ggplot2::scale_x_continuous(limits = c(0, 1),
                                   breaks = seq(0, 1, 0.2)) +
+      ggplot2::coord_cartesian(ylim = ylim_full) +
       ggplot2::theme_bw() +
-      ggplot2::theme(legend.position = "none",
-                     axis.text.y     = ggplot2::element_blank(),
-                     axis.ticks.y    = ggplot2::element_blank(),
-                     axis.title.y    = ggplot2::element_blank(),
-                     panel.grid.minor = ggplot2::element_blank(),
-                     plot.title = ggplot2::element_text(size = 9, hjust = 0)) +
-      ggplot2::labs(x = title, title = title)
+      ggplot2::theme(legend.position  = "none",
+                     axis.text.y      = ggplot2::element_blank(),
+                     axis.ticks.y     = ggplot2::element_blank(),
+                     axis.title.y     = ggplot2::element_blank(),
+                     panel.grid.minor = ggplot2::element_blank()) +
+      ggplot2::labs(x = title)
   }
 
   p_se <- make_panel(se_df, "Sensitivity (95% CI)")
@@ -197,6 +243,6 @@ dta_forest <- function(fit, conf = 0.95, digits = 2) {
   gridExtra::grid.arrange(
     p_labels, p_se, p_se_txt, p_sp, p_sp_txt,
     ncol = 5,
-    widths = c(2.4, 1.8, 1.5, 1.8, 1.5)
+    widths = c(3.0, 1.8, 1.6, 1.8, 1.6)
   )
 }
