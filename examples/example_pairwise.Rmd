@@ -23,48 +23,29 @@ d <- utils::read.csv(path, stringsAsFactors = FALSE)
 head(d)
 ```
 
-```{r reshape}
-long <- dta_reshape_pairwise(
+```{r analyse}
+# One call: reshape + pairwise LR fit + comparison + per-arm single fits.
+res <- dta_pairwise(
   d,
   author       = "author",
   year         = "year",
   intervention = "CT",
   control      = "MRI",
   tp.e = "TP.e", fp.e = "FP.e", fn.e = "FN.e", tn.e = "TN.e",
-  tp.c = "TP.c", fp.c = "FP.c", fn.c = "FN.c", tn.c = "TN.c",
-  test_var = "test"
+  tp.c = "TP.c", fp.c = "FP.c", fn.c = "FN.c", tn.c = "TN.c"
 )
-head(long)
-```
-
-```{r fit_pairwise}
-pair <- dta_fit_pairwise(long, test_var = "test", nAGQ = 1)
-print(pair)
-```
-
-```{r compare}
-cmp <- dta_compare(pair)
-print(cmp)
-```
-
-```{r fit_per_arm}
-# Fit a single-test bivariate model on each arm so we can draw arm-specific
-# forest plots and an overlay SROC.
-long_CT  <- subset(long, test == "CT")
-long_MRI <- subset(long, test == "MRI")
-fit_CT   <- dta_fit_single(long_CT)
-fit_MRI  <- dta_fit_single(long_MRI)
+print(res)
 ```
 
 ```{r save_forest_CT}
 png("forest_CT.png", width = 1400, height = 700, res = 150)
-dta_forest(fit_CT)
+dta_forest(res$arms[["CT"]])
 dev.off()
 ```
 
 ```{r save_forest_MRI}
 png("forest_MRI.png", width = 1400, height = 700, res = 150)
-dta_forest(fit_MRI)
+dta_forest(res$arms[["MRI"]])
 dev.off()
 ```
 
@@ -72,8 +53,8 @@ dev.off()
 # Per-arm SROC (separate panels, saved side by side as one image)
 png("sroc_pairwise.png", width = 1800, height = 900, res = 150)
 gridExtra::grid.arrange(
-  dta_sroc(fit_CT,  auc_method = "trapz", test = "CT"),
-  dta_sroc(fit_MRI, auc_method = "trapz", test = "MRI"),
+  dta_sroc(res$arms[["CT"]],  auc_method = "trapz", test = "CT"),
+  dta_sroc(res$arms[["MRI"]], auc_method = "trapz", test = "MRI"),
   ncol = 2
 )
 dev.off()

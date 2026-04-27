@@ -24,7 +24,7 @@ head(d)
 ```
 
 ```{r fit}
-fit <- dta_fit_single(d, nAGQ = 1, wide = TRUE,
+fit <- dta_fit_single(d, wide = TRUE,
                       tp = "TP", fp = "FP", fn = "FN", tn = "TN",
                       studlab = "studlab")
 print(fit)
@@ -38,7 +38,7 @@ dev.off()
 
 ```{r save_sroc}
 png("sroc_ct.png", width = 1200, height = 1000, res = 150)
-p <- dta_sroc(fit, auc_method = "trapz")
+p <- dta_sroc(fit)
 print(p)
 dev.off()
 ```

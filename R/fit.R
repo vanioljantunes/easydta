@@ -143,6 +143,88 @@ dta_fit_pairwise <- function(long,
   out
 }
 
+#' One-call pairwise DTA meta-analysis
+#'
+#' Convenience wrapper that takes the wide paired-design data frame and
+#' column-name arguments once, then runs the full pipeline:
+#'   1. `dta_reshape_pairwise()` -> long format
+#'   2. `dta_fit_pairwise()`     -> nested LR-test models
+#'   3. `dta_compare()`          -> LR tests + Se/Sp differences
+#'   4. `dta_fit_single()` per arm, keyed by the `intervention` / `control`
+#'      labels, ready for `dta_forest()` and `dta_sroc()`.
+#'
+#' @inheritParams dta_reshape_pairwise
+#' @param nAGQ  Integer; Laplace by default (passed to both fitters).
+#' @param conf  Confidence level used by per-arm heterogeneity summaries
+#'   and by `dta_compare()` (default 0.95).
+#'
+#' @return An S3 object of class `"dta_pairwise_result"` with components:
+#'   `long`, `pair` (the `dta_pairwise` fit), `compare` (the `dta_compare`
+#'   result), `arms` (named list of two `dta_single` fits), and `labels`
+#'   (the intervention / control labels).
+#'
+#' @export
+dta_pairwise <- function(data,
+                         author       = "author",
+                         year         = "year",
+                         intervention = "Intervention",
+                         control      = "Control",
+                         tp.e         = "TP.e",
+                         fp.e         = "FP.e",
+                         fn.e         = "FN.e",
+                         tn.e         = "TN.e",
+                         tp.c         = "TP.c",
+                         fp.c         = "FP.c",
+                         fn.c         = "FN.c",
+                         tn.c         = "TN.c",
+                         studlab      = NULL,
+                         test_var     = "test",
+                         nAGQ         = 1L,
+                         conf         = 0.95) {
+  long <- dta_reshape_pairwise(
+    data,
+    author       = author,
+    year         = year,
+    intervention = intervention,
+    control      = control,
+    tp.e = tp.e, fp.e = fp.e, fn.e = fn.e, tn.e = tn.e,
+    tp.c = tp.c, fp.c = fp.c, fn.c = fn.c, tn.c = tn.c,
+    studlab      = studlab,
+    test_var     = test_var
+  )
+
+  pair <- dta_fit_pairwise(long, test_var = test_var, nAGQ = nAGQ)
+  cmp  <- dta_compare(pair, conf = conf)
+
+  arm_rows <- function(label) long[long[[test_var]] == label, , drop = FALSE]
+  fit_e <- dta_fit_single(arm_rows(intervention), nAGQ = nAGQ, conf = conf)
+  fit_c <- dta_fit_single(arm_rows(control),      nAGQ = nAGQ, conf = conf)
+
+  arms <- stats::setNames(list(fit_e, fit_c), c(intervention, control))
+
+  out <- list(
+    long     = long,
+    pair     = pair,
+    compare  = cmp,
+    arms     = arms,
+    labels   = list(intervention = intervention, control = control),
+    test_var = test_var
+  )
+  class(out) <- "dta_pairwise_result"
+  out
+}
+
+#' @export
+print.dta_pairwise_result <- function(x, ...) {
+  cat("<dta_pairwise_result>  One-call pairwise DTA analysis\n")
+  cat("  Arms: ", x$labels$intervention, " vs ", x$labels$control, "\n\n",
+      sep = "")
+  print(x$pair)
+  cat("\n")
+  print(x$compare)
+  invisible(x)
+}
+
 # -- Internals --------------------------------------------------------------
 
 .check_long <- function(long) {
