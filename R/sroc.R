@@ -131,7 +131,7 @@ dta_sroc <- function(fit,
     sprintf("%.1f%%", 100 * i2_biv)
   }
 
-  rows_label <- c("Sens =", "Spec =", "AUC =", "I² =")
+  rows_label <- c("Sens =", "Spec =", "AUC =", "I2 =")
   rows_value <- c(
     fmt2(sens_ci["estimate"], sens_ci["lci"], sens_ci["uci"]),
     fmt2(spec_ci["estimate"], spec_ci["lci"], spec_ci["uci"]),
@@ -155,7 +155,7 @@ dta_sroc <- function(fit,
 
   label_w <- max(nchar(rows_label)) * char_w
   value_w <- max(nchar(rows_value)) * char_w
-  box_title <- sprintf("%s summary", test)
+  box_title <- "Summary"
   # Bold title rendered slightly wider than plain text.
   title_w <- nchar(box_title) * char_w * 1.10
 
@@ -289,12 +289,13 @@ dta_sroc <- function(fit,
                       hjust = 0, size = 3.1)
 
   p <- p +
-    ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1),
-                             expand = FALSE, clip = "off") +
+    ggplot2::coord_cartesian(clip = "off") +
     ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2),
-                                expand = c(0, 0)) +
+                                limits = c(0, 1),
+                                expand = ggplot2::expansion(mult = 0.02)) +
     ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2),
-                                expand = c(0, 0)) +
+                                limits = c(0, 1),
+                                expand = ggplot2::expansion(mult = 0.02)) +
     ggplot2::labs(x = "False positive rate (1 - Specificity)",
                   y = "Sensitivity",
                   title = title_text) +
