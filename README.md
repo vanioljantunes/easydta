@@ -47,14 +47,6 @@ Install directly from GitHub:
 remotes::install_github("vanioljantunes/easydta")
 ```
 
-Or from a local clone (for development):
-
-```r
-devtools::load_all("path/to/easydta")
-# or
-install.packages("path/to/easydta", repos = NULL, type = "source")
-```
-
 **Required CRAN dependencies** (auto-installed):
 `lme4`, `msm`, `lmtest`, `ggplot2`, `grid`, `gridExtra`, `MASS`,
 `metafor`, `pracma`.
