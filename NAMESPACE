@@ -12,6 +12,8 @@ export(dta_derived)
 export(dta_compare)
 export(dta_forest)
 export(dta_sroc)
+export(dta_sroc_pair)
+export(dta_funnel)
 export(dta_roc_points)
 
 S3method(print, dta_single)

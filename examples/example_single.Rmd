@@ -34,6 +34,26 @@ fit <- dta_fit_single(d, wide = TRUE,
 print(fit)
 ```
 
+## Forest plot
+
+`dta_forest()` renders a coupled sensitivity / specificity forest as a
+single composite. Reading the panels left to right:
+
+1. `studlab` and the raw `TP / FN / TN / FP` counts (the **Summary** row
+   is bold and shows the column totals);
+2. per-study sensitivity point estimate with exact (Clopper-Pearson) 95%
+   CI and the bivariate-GLMM summary diamond, with a dashed vertical
+   reference line through the diamond centre;
+3. the numeric sensitivity `est (lci-uci)` column;
+4. the same pair of panels for specificity.
+
+The bivariate Zhou-Dendukuri I² is split across three small italic
+annotations placed directly under each summary block: `I²(biv)` under
+the Summary label, `I²(sens)` under the sens diamond, `I²(spec)` under
+the spec diamond. A solid x-axis line with ticks sits just below the
+diamond row on each CI panel; row backgrounds are zebra-shaded
+continuously across all five panels.
+
 ```{r save_forest}
 png("forest_ccp2.png", width = 1400, height = 1000, res = 150)
 dta_forest(fit)
@@ -46,5 +66,26 @@ p <- dta_sroc(fit, test = "anti-CCP2",
               outcome = "rheumatoid arthritis",
               population = "adults")
 print(p)
+dev.off()
+```
+
+## Deeks funnel plot + asymmetry test
+
+`dta_funnel()` renders the Cochrane-recommended publication-bias
+diagnostic for DTA reviews (Handbook v2.0 ch. 10.6.4; Deeks, Macaskill
+& Irwig 2005). The funnel plots `ln(DOR)` against `1/sqrt(ESS)` (the
+y-axis is reversed so larger studies sit at the top), and the table
+below reports the weighted-regression Deeks test for funnel asymmetry
+(`lm(lnDOR ~ 1/sqrt(ESS), weights = ESS)` -- the slope p-value is the
+Deeks p; p < 0.05 suggests asymmetry consistent with publication bias).
+
+```{r save_funnel}
+png("funnel_ccp2.png", width = 1200, height = 1100, res = 150)
+grid::grid.draw(
+  dta_funnel(fit,
+             test       = "anti-CCP2",
+             outcome    = "rheumatoid arthritis",
+             population = "adults")
+)
 dev.off()
 ```
