@@ -2,21 +2,43 @@
 
 **Cochrane-compliant Diagnostic Test Accuracy meta-analysis in R.**
 
-A pedagogical, `lme4`-based workflow for bivariate binomial GLMM
-meta-analysis of DTA studies, following the
-[Cochrane Handbook for Systematic Reviews of Diagnostic Test Accuracy v2.0
-(Chapter 10, Supplementary Material 1)](https://training.cochrane.org/handbook-diagnostic-test-accuracy/current).
-Replaces `mada` (which uses a normal-approximation Cochrane discourages)
-with methods Cochrane explicitly endorses.
+---
 
-Heterogeneity is reported via the **Zhou & Dendukuri (2014) bivariate I²**,
-which is defined on the bivariate model and is safe for DTA — unlike the
-naive Higgins I² that Cochrane §10.2.5 warns against because of the
-threshold effect.
+## 1. What is this package
+
+`easydta` is a pedagogical, opinionated R package for diagnostic test
+accuracy (DTA) meta-analysis. It implements the bivariate binomial
+GLMM workflow recommended by the
+[Cochrane Handbook for Systematic Reviews of Diagnostic Test Accuracy
+v2.0 (Chapter 10, Supplementary Material 1, Takwoingi et al. 2023)](https://training.cochrane.org/handbook-diagnostic-test-accuracy/current),
+exposes it through a small set of `dta_*()` functions, and replaces
+older `mada`-style normal-approximation methods with the ones Cochrane
+explicitly endorses.
+
+**What you get:**
+
+- **One model engine** — a bivariate binomial GLMM via
+  `lme4::glmer(cbind(true, n - true) ~ 0 + sens + spec + (0 + sens + spec | studlab))`,
+  the same parameterisation as Cochrane Appendix 5.
+- **Cochrane-style heterogeneity** — the
+  Zhou & Dendukuri (2014) bivariate I² (per-dimension and joint),
+  plus τ, ρ, and the prediction-region ellipse — computed automatically
+  inside `dta_fit_single()`. Avoids the naive Higgins I² that
+  Cochrane §10.2.5 warns against because of the threshold effect.
+- **Cochrane Appendix 12 inference** — likelihood-ratio tests for
+  test-comparison studies (overall test effect, Sens-differs, Spec-differs)
+  and delta-method 95% CIs for absolute and relative Se/Sp differences.
+- **Plots out of the box** — coupled sens/spec forest, SROC with
+  confidence + prediction regions and bootstrap AUC (via
+  `dmetatools::AUC_boot` or `AUC_comparison`), and a Deeks funnel with
+  contour-enhanced pseudo-CI bands and the Deeks asymmetry test.
+- **Sensible defaults; few arguments** — every plot function takes
+  `test`/`outcome`/`population` for a Cochrane-style title, and every
+  composite plot returns a single `gtable` you can `grid::grid.draw()`.
 
 ---
 
-## Installation
+## 2. How to install it
 
 Install directly from GitHub:
 
@@ -33,179 +55,266 @@ devtools::load_all("path/to/easydta")
 install.packages("path/to/easydta", repos = NULL, type = "source")
 ```
 
-Dependencies (auto-installed from CRAN if needed via `pacman`):
-`lme4`, `msm`, `lmtest`, `ggplot2`, `grid`, `gridExtra`, `MASS`, `pracma`.
+**Required CRAN dependencies** (auto-installed):
+`lme4`, `msm`, `lmtest`, `ggplot2`, `grid`, `gridExtra`, `MASS`,
+`metafor`, `pracma`.
 
-**Optional** (recommended for AUC inference):
+**Optional but recommended** — installs paired-bootstrap AUC inference
+for `dta_sroc_pair()` (joint AUC + dAUC + p-value via
+`dmetatools::AUC_comparison`) and per-test bootstrap CIs for
+`dta_sroc(auc_method = "boot")`:
 
 ```r
-install.packages("mada")                    # dmetatools runtime dep
+install.packages("mada")                       # dmetatools runtime dep
 remotes::install_github("nomahi/dmetatools")
 ```
 
-When `dmetatools` is available, `dta_sroc(fit, auc_method = "boot")` is the
-default and attaches a bootstrap 95% CI to the AUC. Otherwise it falls
-back to trapezoidal integration over the SROC curve.
+When `dmetatools` is unavailable, AUC machinery degrades gracefully:
+`dta_sroc()` falls back to trapezoidal integration with a parametric
+MVN bootstrap CI on `(lsens, lspec)`, and `dta_sroc_pair(auc_ic = TRUE)`
+emits a single warning then drops the dAUC p-value column.
 
 ---
 
-## The three workflows
+## 3. Data preparation
 
-`easydta` supports three workflows, selected by your input data and
-research question.
+### Input formats
 
-### Workflow A — Single index test
+`easydta` accepts two wide layouts depending on the workflow:
 
-**When to use:** one diagnostic test, many studies; no arm comparison.
+**(a) Single-test wide** — one row per study:
 
-**Input schema:** one row per study with columns
-`studlab, TP, FP, FN, TN` (plus any covariates you want to carry through).
+| studlab    | TP | FP | FN | TN | (covariates...) |
+|------------|----|----|----|----|----------------|
+| Smith 2003 | 90 | 10 |  5 | 50 | ...             |
 
-**Pipeline:**
+Use this for the single-arm workflow (§4) and also for the pairwise
+workflow (§5) when the two arms are encoded as a between-study
+covariate (e.g. anti-CCP1 vs anti-CCP2 across different studies).
 
-```
-wide 2x2 (studlab, TP, FP, FN, TN)
-      │
-      ▼   dta_reshape()        -- wide -> long (sens/spec rows)
-long (studlab, sens, spec, true, n)
-      │
-      ▼   dta_fit_single()     -- bivariate GLMM via lme4::glmer
-dta_single object
-      │
-      ├──► dta_summary()         tidy table: Se, Sp, DOR, LR+, LR- with 95% CI
-      ├──► dta_derived()         DOR / LR+ / LR- with delta-method CIs
-      ├──► fit$heterogeneity     tau, rho, Zhou-Dendukuri I^2, prediction region
-      │                          (computed inside dta_fit_single, shown by print)
-      ├──► dta_forest()          coupled sens+spec forest as a single plot
-      ├──► dta_sroc()            SROC + confidence region + prediction region + AUC
-      └──► dta_roc_points()      raw study-level ROC scatter
-```
+**(b) Paired wide** — one row per study, `.e` (intervention) and `.c`
+(control) suffixes:
 
-See [examples/example_single.Rmd](examples/example_single.Rmd).
+| author | year | TP.e | FP.e | FN.e | TN.e | TP.c | FP.c | FN.c | TN.c |
+|--------|------|------|------|------|------|------|------|------|------|
+| Lee    | 2019 |  88  |   7  |  12  |  93  |  80  |  10  |  20  |  90  |
 
-### Workflow B — Pairwise test comparison (paired design, `.e`/`.c` input)
+Use this for paired designs (CT vs MRI, ELISA vs IFA, etc.).
 
-**When to use:** two tests evaluated head-to-head across studies (paired
-design), e.g. CT vs MRI, ELISA vs IFA. You want to know whether
-sensitivity and/or specificity differ between the two tests.
+### Bundled example datasets
 
-**Input schema:** one row per study with
-`author, year, TP.e, FP.e, FN.e, TN.e, TP.c, FP.c, FN.c, TN.c`,
-where `.e` = experimental/intervention arm and `.c` = control arm.
+| File / `data()` name | Description |
+|----------------------|-------------|
+| `data(anti_ccp)` (also `inst/extdata/anti_ccp.csv`) | 37-study anti-CCP dataset (Cochrane Handbook ch. 10). Columns: `studlab, TP, FP, FN, TN, generation` (CCP1 vs CCP2). Drives the single-arm workflow when subset, and the covariate-pairwise workflow when used whole. |
 
-**Pipeline:**
+### Reshaping (only needed when calling fit functions yourself)
 
-```
-wide .e/.c (author, year, TP.e..TN.e, TP.c..TN.c)
-      │
-      ▼   dta_reshape_pairwise(intervention, control)
-long with a `test` column carrying the two arm labels
-      │
-      ▼   dta_fit_pairwise(test_var = "test")
-dta_pairwise object (models A/B/C/D, Cochrane App. 12)
-      │
-      ├──► dta_summary()    per-test Se, Sp, DOR, LR+, LR- with 95% CI
-      ├──► dta_compare()    three LR tests + absolute & relative Se/Sp differences
-      └──► (split by arm -> dta_fit_single -> dta_forest / dta_sroc per arm)
+```r
+# Single-test wide -> long
+long  <- dta_reshape(data,
+                     tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+                     studlab = "studlab",
+                     extra   = "generation")    # optional covariate
+
+# Paired wide (.e/.c) -> long, with the two arms stacked on a `test` col
+long2 <- dta_reshape_pairwise(
+  data,
+  intervention = "CT", control = "MRI",
+  tp.e = "TP.e", fp.e = "FP.e", fn.e = "FN.e", tn.e = "TN.e",
+  tp.c = "TP.c", fp.c = "FP.c", fn.c = "FN.c", tn.c = "TN.c"
+)
 ```
 
-See [examples/example_pairwise.Rmd](examples/example_pairwise.Rmd).
+In day-to-day use you can usually skip this step:
+`dta_fit_single(wide = TRUE, ...)` and `dta_compare_tests(...)` reshape
+internally.
 
 ---
 
-## Public API
+## 4. Single-arm DTA analysis
 
-### Data reshaping
-
-| Function | Purpose |
-|----------|---------|
-| `dta_reshape(data, tp, fp, fn, tn, studlab, extra)` | Single-test wide → long. `studlab` is the column carrying the study label; `extra` lets you carry additional covariates through. |
-| `dta_reshape_pairwise(data, author, year, intervention, control, tp.e, fp.e, fn.e, tn.e, tp.c, fp.c, fn.c, tn.c, studlab, test_var)` | Paired-design wide (`.e`/`.c`) → long, stacking the two arms into a single `test` column. `intervention` and `control` are the labels assigned to the `.e` and `.c` rows respectively. If `studlab` is `NULL` (default) the label is built as `paste(author, year)`. |
-
-### Model fitting
-
-| Function | Purpose |
-|----------|---------|
-| `dta_fit_single(long, nAGQ = 1, wide = FALSE, conf = 0.95, ...)` | Bivariate binomial GLMM (Cochrane Appendix 5): `glmer(cbind(true, n - true) ~ 0 + sens + spec + (0 + sens + spec \| studlab))`. Returns an S3 `dta_single` carrying the raw fit, the fixed-effect VCV, the between-study VCV `Psi`, the long data, and `$heterogeneity` (τ, ρ, Zhou-Dendukuri bivariate I², and the `conf`-level prediction-region ellipse). `print(fit)` displays the heterogeneity block alongside the Se/Sp/DOR/LR table. Pass `wide = TRUE` to reshape internally. |
-| `dta_fit_pairwise(long, test_var, nAGQ = 1)` | Fits the four nested models A/B/C/D from Cochrane Appendix 12 using the test-type covariate. Returns a `dta_pairwise` object. |
-
-### Summary & derived measures
-
-| Function | Purpose |
-|----------|---------|
-| `dta_summary(object)` | Tidy data frame of Se, Sp, DOR, LR+, LR- with 95% CIs. Dispatches on `dta_single` / `dta_pairwise`. |
-| `dta_derived(fit)` | DOR / LR+ / LR- with delta-method CIs (`msm::deltamethod`). |
-
-### Heterogeneity
-
-Heterogeneity is computed automatically inside `dta_fit_single()` and stored
-on the returned object as `fit$heterogeneity` — a list with `tau_sens`,
-`tau_spec`, correlation `rho`, the **Zhou & Dendukuri (2014) bivariate I²**
-(per-dimension + joint), and the prediction-region ellipse coordinates used
-by `dta_sroc()`. `print(fit)` displays the block alongside the
-Se/Sp/DOR/LR summary table. Pass `conf = ...` to `dta_fit_single()` to
-change the prediction-region confidence level (default 0.95).
-
-### Comparison
-
-| Function | Purpose |
-|----------|---------|
-| `dta_compare(pair_fit)` | Three likelihood-ratio tests (null vs full, full vs Se-common, full vs Sp-common) + absolute and relative Se and Sp differences between the two arms, each with delta-method 95% CIs. |
-
-### Plots (all return a single graphic)
-
-| Function | Purpose |
-|----------|---------|
-| `dta_forest(fit, conf = 0.95, digits = 2)` | Coupled sensitivity + specificity forest as **one composite output**: three panels (label column showing `studlab, TP, FN, TN, FP` in mono font; sens + CI; spec + CI) aligned side-by-side via `gridExtra::grid.arrange(ncol = 3)`. Study-level CIs are exact (Clopper–Pearson). Counts and study labels are pulled from `fit$long`, so no separate data frame is needed. Rows are zebra-shaded (alternating row backgrounds) for readability; the summary-diamond row is left unshaded. |
-| `dta_sroc(fit, test, outcome, population, ci, pred, auc, auc_method, B, conf, n_grid)` | SROC curve + 95% confidence region + 95% prediction region + AUC. Main title is rendered as `sROC of "<test>" to predict "<outcome>" in "<population>"` (defaults `"test"`/`"outcome"`/`"population"`). An in-plot summary box in the bottom-left corner shows **Sensitivity**, **Specificity**, **AUC** (each with CI), and the bivariate **I²** — labels bold, values plain, all under a bold "Summary" header inside a bordered box. Panel grid lines are removed; the bubble-size legend on the right is suppressed. `auc_method = "boot"` uses `dmetatools::AUC_boot` and attaches a bootstrap CI; `auc_method = "trapz"` integrates the SROC with `pracma::trapz`. |
-| `dta_roc_points(data, ...)` | Raw study-level ROC scatter (no model overlay). |
-
----
-
-## Quick start
+**When to use:** one diagnostic test, many studies, no head-to-head
+comparison.
 
 ```r
 library(easydta)
+data(anti_ccp)
+ccp2 <- subset(anti_ccp, generation == "CCP2")
 
-# Workflow A — single test
-d   <- read.csv(system.file("extdata/ct_single.csv", package = "easydta"))
-fit <- dta_fit_single(d, wide = TRUE,
+fit <- dta_fit_single(ccp2, wide = TRUE,
                       tp = "TP", fp = "FP", fn = "FN", tn = "TN",
                       studlab = "studlab")
-print(fit)                       # Se, Sp, DOR, LR+, LR- with CIs
-                                 # AND tau, rho, Zhou-Dendukuri bivariate I^2
-dta_forest(fit, d, studlab = "studlab")
-dta_sroc(fit)
+print(fit)            # Se, Sp, DOR, LR+, LR- with CIs
+                      # plus tau, rho, Zhou-Dendukuri bivariate I^2
+```
 
-# Workflow B — paired-design pairwise
-d2    <- read.csv(system.file("extdata/ct_mri.csv", package = "easydta"))
-long2 <- dta_reshape_pairwise(d2, intervention = "CT", control = "MRI")
-pair  <- dta_fit_pairwise(long2, test_var = "test")
-print(pair)                      # per-arm Se, Sp, DOR, LR+/-
-dta_compare(pair)                # LR tests + Se/Sp differences
+`fit` is a `dta_single` carrying the raw `glmer` fit, the fixed-effect
+VCV, the between-study VCV (`Psi`), the long data, and `$heterogeneity`
+(τ_sens, τ_spec, ρ, joint and per-dimension I², the prediction-region
+ellipse).
+
+### Plots
+
+```r
+# Coupled sens / spec forest -- single composite (5 aligned panels)
+dta_forest(fit)
+
+# SROC + 95% confidence region + 95% prediction region + AUC
+dta_sroc(fit, test = "anti-CCP2",
+         outcome    = "rheumatoid arthritis",
+         population = "adults")
+```
+
+The vignette: [`examples/example_single.Rmd`](examples/example_single.Rmd).
+
+### Tidy summaries
+
+```r
+dta_summary(fit)      # Se, Sp, DOR, LR+, LR- with 95% CIs
+dta_derived(fit)      # DOR / LR+ / LR- with delta-method CIs
 ```
 
 ---
 
-## Bundled example datasets
+## 5. Pairwise DTA analysis
 
-| File | Purpose |
-|------|---------|
-| [`inst/extdata/anti_ccp.csv`](inst/extdata/anti_ccp.csv) | 37-study anti-CCP dataset (Cochrane Handbook Appendix 6). Columns: `studlab, TP, FP, FN, TN, generation`. Used for Workflow A; `generation` (CCP1/CCP2) can also drive a non-paired Workflow B via `extra = "generation"` → `dta_fit_pairwise(test_var = "generation")`. |
-| [`inst/extdata/ct_mri.csv`](inst/extdata/ct_mri.csv) | 10 fabricated CT-vs-MRI paired studies. Columns: `author, year, TP.e, FP.e, FN.e, TN.e, TP.c, FP.c, FN.c, TN.c`. Use for Workflow B. |
+**When to use:** two tests evaluated head-to-head, either as a
+between-study covariate (e.g. anti-CCP1 vs anti-CCP2) or as a paired
+design (CT vs MRI in the same study).
+
+### One-call analysis
+
+```r
+library(easydta)
+data(anti_ccp)
+
+# Reshape + fit pairwise GLMM + LR tests + per-arm single fits in one go
+res <- dta_compare_tests(anti_ccp, test_var = "generation")
+print(res)
+# Prints:
+#   - per-arm Se / Sp / DOR / LR+/- summary
+#   - LR tests A vs B (overall), C vs B (Sens differs?),
+#                D vs B (Spec differs?)
+#   - Absolute & relative Se/Sp differences with delta-method 95% CIs
+```
+
+`res` is a `dta_pairwise_result` with `$pair`, `$compare`, and
+`$arms` (a named list of per-arm `dta_single` fits), plus `$labels`
+identifying which level is intervention and which is control.
+
+### Plots
+
+```r
+# Per-arm forest -- pass the test name directly, no $arms[[]] gymnastics
+dta_forest(res, arm = "CCP1")
+dta_forest(res, arm = "CCP2")
+
+# Side-by-side SROC + Cochrane-style differences table beneath
+#   .e = intervention, .c = control
+dta_sroc_pair(res,
+              arm.e = "CCP2", test.e = "anti-CCP2",
+              arm.c = "CCP1", test.c = "anti-CCP1",
+              outcome    = "rheumatoid arthritis",
+              population = "adults",
+              auc_ic = TRUE)   # FALSE skips the AUC bootstrap (faster)
+```
+
+The differences table reports per-arm Sens, Spec and AUC (each with
+95% CI), the absolute difference `.e - .c` (95% CI), and a p-value:
+
+| Measure | anti-CCP2 | anti-CCP1 | Diff (anti-CCP2 - anti-CCP1) | P-value |
+|---|---|---|---|---|
+| Sensitivity | 0.705 (0.646, 0.758) | 0.481 (0.435, 0.526) | 0.228 (0.110, 0.347) | <0.001 |
+| Specificity | 0.953 (0.937, 0.966) | 0.969 (0.947, 0.982) | -0.016 (-0.038, 0.006) | 0.208 |
+| AUC         | 0.918 (0.886, 0.940) | 0.709 (0.512, 0.952) | 0.209 (-0.031, 0.411) | 0.100 |
+
+- Sens / Spec p-values are LR tests (Cochrane Appendix 12, rows 2-3 of
+  `res$compare$lr_tests`).
+- Sens / Spec diff CIs are delta-method on the joint pairwise model.
+- AUC + dAUC + p-value come from a single `dmetatools::AUC_comparison()`
+  call (Noma & Matsushima 2020), so the table and per-panel summary
+  boxes always show the same numbers.
+
+The vignette: [`examples/example_pairwise.Rmd`](examples/example_pairwise.Rmd).
+
+### Lower-level pairwise API (if you don't want the wrapper)
+
+```r
+long  <- dta_reshape_pairwise(d, intervention = "CT", control = "MRI")
+pair  <- dta_fit_pairwise(long, test_var = "test")  # models A/B/C/D
+cmp   <- dta_compare(pair)                          # LR tests + diffs
+```
+
+---
+
+## 6. Small effect analysis
+
+Cochrane-recommended publication-bias diagnostic for DTA reviews
+(Handbook v2.0 §10.6.4; Deeks, Macaskill & Irwig 2005).
+
+```r
+# Single-arm
+dta_funnel(fit,
+           test       = "anti-CCP2",
+           outcome    = "rheumatoid arthritis",
+           population = "adults")
+
+# Per arm of a pairwise comparison
+dta_funnel(res, arm = "CCP1",
+           test = "anti-CCP1",
+           outcome    = "rheumatoid arthritis",
+           population = "adults")
+```
+
+The plot puts `ln(DOR)` on the x-axis and `1/sqrt(ESS)` on the y-axis
+(reversed — large studies on top), with a dashed vertical reference
+line at the REML-pooled `ln(DOR)` and three nested pseudo-confidence
+triangles (90 / 95 / 99 %, darker toward the centre) so you can read
+asymmetry by eye.
+
+Underneath the funnel, horizontally aligned with the reference line, a
+small grid table reports:
+
+| Statistic | Value |
+|---|---|
+| Number of studies | 29 |
+| Deeks p-value | 0.246 |
+
+The Deeks p-value comes from a weighted linear regression of
+`ln(DOR_i)` on `1/sqrt(ESS_i)` with weights `ESS_i` — slope ≠ 0
+indicates funnel asymmetry consistent with publication bias. The full
+pooled DOR (REML, 95% CI), regression slope (SE), t and df are
+attached for programmatic use:
+
+```r
+g <- dta_funnel(fit, ...)
+attr(g, "deeks")        # full Deeks regression list
+attr(g, "pooled")       # pooled DOR + 95% CI on log and natural scales
+attr(g, "study_data")   # per-study TP/FP/FN/TN, lnDOR, SE, ESS
+```
+
+`continuity = 0.5` (default) is added to all four cells of any study
+with a zero cell — matches `metafor::escalc(to = "only0")`.
 
 ---
 
 ## References
 
-- Takwoingi Y *et al.* *Supplementary material 1 to Chapter 10: Code for
-  undertaking meta-analysis.* Cochrane Handbook for Systematic Reviews of
-  Diagnostic Test Accuracy v2.0 (July 2023).
+- Takwoingi Y *et al.* *Supplementary material 1 to Chapter 10: Code
+  for undertaking meta-analysis.* Cochrane Handbook for Systematic
+  Reviews of Diagnostic Test Accuracy v2.0 (July 2023).
 - Zhou Y, Dendukuri N. *Statistics for quantifying heterogeneity in
   univariate and bivariate meta-analyses of binary data: the case of
   meta-analyses of diagnostic accuracy.* Stat Med. 2014;33(16):2701-2717.
+- Deeks JJ, Macaskill P, Irwig L. *The performance of tests of
+  publication bias and other sample size effects in systematic reviews
+  of diagnostic test accuracy was assessed.* J Clin Epidemiol.
+  2005;58(9):882-893.
+- Noma H, Matsushima Y. *Confidence interval for the AUC of SROC curve
+  and some related methods using bootstrap for meta-analysis of
+  diagnostic accuracy studies.* arXiv:2004.04339 (2020).
 - Noma H *et al.* [`dmetatools`](https://github.com/nomahi/dmetatools) —
-  bootstrap AUC and related diagnostic meta-analysis tools.
+  bootstrap AUC and dAUC tools used by `dta_sroc()` / `dta_sroc_pair()`.
 
 ## License
 

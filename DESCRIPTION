@@ -15,6 +15,7 @@ Description: Pedagogical, lme4-based workflow for bivariate binomial GLMM
     confidence and prediction regions.
 License: MIT
 Encoding: UTF-8
+LazyData: true
 Depends:
     R (>= 4.2.0)
 Imports:
@@ -25,6 +26,7 @@ Imports:
     grid,
     gridExtra,
     MASS,
+    metafor,
     pracma,
     stats,
     utils
@@ -33,4 +35,4 @@ Suggests:
     knitr,
     dmetatools
 Additional_repositories: https://github.com/nomahi/dmetatools
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.3

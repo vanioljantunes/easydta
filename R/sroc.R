@@ -57,10 +57,12 @@ dta_sroc <- function(fit,
                      pred  = TRUE,
                      labels = TRUE,
                      auc   = TRUE,
+                     auc_ci = TRUE,
                      auc_method = c("boot", "trapz"),
                      B     = 2000,
                      conf  = 0.95,
-                     n_grid = 200) {
+                     n_grid = 200,
+                     auc_override = NULL) {
   auc_method <- match.arg(auc_method)
   stopifnot(inherits(fit, "dta_single"))
   f <- .fixed_se_sp(fit$fit)
@@ -109,16 +111,23 @@ dta_sroc <- function(fit,
   auc_ci_pair <- NULL
   auc_text    <- "n/a"
   if (auc) {
-    auc_res <- .compute_auc(fit, NULL, auc_method, B, conf, curve,
-                            "TP", "FP", "FN", "TN",
-                            slope = slope, fpr_grid = fpr_grid)
-    auc_val <- auc_res$AUC
-    if (!is.null(auc_res$CI)) {
-      auc_ci_pair <- auc_res$CI
-      auc_text <- sprintf("%.3f (%.3f-%.3f)",
-                          auc_val, auc_res$CI[1], auc_res$CI[2])
+    if (!is.null(auc_override)) {
+      auc_val     <- auc_override$AUC
+      auc_ci_pair <- auc_override$CI
+    } else if (!isTRUE(auc_ci)) {
+      ord <- order(curve$fpr)
+      auc_val <- pracma::trapz(curve$fpr[ord], curve$tpr[ord])
     } else {
-      auc_text <- sprintf("%.3f", auc_val)
+      auc_res <- .compute_auc(fit, NULL, auc_method, B, conf, curve,
+                              "TP", "FP", "FN", "TN",
+                              slope = slope, fpr_grid = fpr_grid)
+      auc_val     <- auc_res$AUC
+      auc_ci_pair <- auc_res$CI
+    }
+    auc_text <- if (!is.null(auc_ci_pair)) {
+      sprintf("%.3f (%.3f-%.3f)", auc_val, auc_ci_pair[1], auc_ci_pair[2])
+    } else {
+      sprintf("%.3f", auc_val)
     }
   }
 
@@ -318,6 +327,272 @@ dta_sroc <- function(fit,
     if (!is.null(auc_ci_pair)) attr(p, "AUC_CI") <- auc_ci_pair
   }
   p
+}
+
+#' Side-by-side SROC plot for a pairwise / covariate comparison
+#'
+#' Convenience wrapper around two `dta_sroc()` calls that arranges the
+#' intervention (`.e`) and control (`.c`) arms next to each other and,
+#' below the panels, prints a small Cochrane-style differences table:
+#' for each measure (Sens, Spec, AUC) the per-arm estimate (95% CI),
+#' the absolute difference `.e - .c` (95% CI), and a p-value.
+#'
+#' Statistical inference follows the Cochrane Handbook for DTA Reviews
+#' (Appendix 12, Takwoingi et al. 2023):
+#' * Sens / Spec p-values come from likelihood-ratio tests of the
+#'   bivariate model with the relevant fixed effect constrained equal
+#'   between arms (rows 2 and 3 of `x$compare$lr_tests`); the absolute
+#'   difference (with delta-method CI) comes from `x$compare$differences`.
+#' * AUC inference (when `auc_ic = TRUE`) uses
+#'   `dmetatools::AUC_comparison()` (Noma & Matsushima 2020): a
+#'   parametric bootstrap that jointly returns each arm's AUC + 95% CI,
+#'   the difference dAUC + 95% CI, and a p-value for `dAUC = 0`.  When
+#'   `dmetatools` is not installed, AUCs are taken from `dta_sroc()` and
+#'   the p-value is reported as `n/a`.
+#'
+#' @param x         A `dta_pairwise_result` (output of
+#'   `dta_compare_tests()`) *or* a named list of two `dta_single` fits.
+#' @param arm.e,arm.c Names of the intervention (`.e`) and control (`.c`)
+#'   arms in `x$arms` (or in `x` if a list was passed).
+#' @param test.e,test.c Test labels shown in each panel title and in the
+#'   differences table header.  Default to `arm.e` / `arm.c`.
+#' @param outcome,population Shared title fields passed through to
+#'   `dta_sroc()`.
+#' @param table     Logical. Show the differences table below the panels?
+#'   (default `TRUE`).
+#' @param auc_ic    Logical. Compute AUC point estimates + confidence
+#'   intervals + dAUC inference?  (default `TRUE`.)  When `FALSE`:
+#'   per-panel summary boxes show just the AUC point estimate (no CI),
+#'   and the differences table omits the AUC row entirely -- skipping
+#'   the bootstrap is much faster and useful for previewing.
+#' @param B         Bootstrap replicates for `AUC_comparison()` (default
+#'   2000); ignored when `auc_ic = FALSE`.
+#' @param conf      Confidence level (default 0.95).
+#' @param ncol      Number of columns for the SROC panel row (default 2).
+#' @param ...       Extra arguments forwarded to both `dta_sroc()` calls
+#'   (e.g. `auc_method`, `labels`, `pred`).  `auc_ci` is set
+#'   automatically from `auc_ic` and should not be overridden.
+#'
+#' @return A `gtable` produced by `gridExtra::arrangeGrob()`; it prints
+#'   itself via `grid::grid.draw()` when sent to a graphics device.
+#'   `attr(., "panels")` holds the underlying ggplot list and
+#'   `attr(., "diff_table")` holds the rendered data.frame.
+#' @export
+dta_sroc_pair <- function(x,
+                          arm.e, arm.c,
+                          test.e = arm.e,
+                          test.c = arm.c,
+                          outcome    = "outcome",
+                          population = "population",
+                          table  = TRUE,
+                          auc_ic = TRUE,
+                          B      = 2000,
+                          conf   = 0.95,
+                          ncol   = 2,
+                          ...) {
+  arms <- if (inherits(x, c("dta_pairwise_result", "dta_compare"))) {
+    x$arms
+  } else x
+  if (!is.list(arms) || is.null(names(arms)))
+    stop("`x` must be a dta_pairwise_result or a named list of dta_single fits.")
+  miss <- setdiff(c(arm.e, arm.c), names(arms))
+  if (length(miss))
+    stop("Arms not found in x$arms: ", paste(miss, collapse = ", "))
+
+  fit_e <- arms[[arm.e]]
+  fit_c <- arms[[arm.c]]
+
+  # Joint AUC inference up-front so each panel can reuse the same numbers
+  # via `auc_override` and we get one consistent dAUC + p-value for the
+  # differences table.  Skipped entirely when auc_ic = FALSE.
+  auc_pair <- if (isTRUE(auc_ic)) {
+    .compute_auc_pair(fit_e, fit_c, B = B, conf = conf)
+  } else NULL
+
+  panel_args <- list(...)
+  panel_args$auc    <- isTRUE(auc_ic)
+  panel_args$auc_ci <- isTRUE(auc_ic)
+
+  p_e <- do.call(dta_sroc, c(list(fit_e,
+                                  test       = test.e,
+                                  outcome    = outcome,
+                                  population = population,
+                                  auc_override = auc_pair$arm.e),
+                             panel_args))
+  p_c <- do.call(dta_sroc, c(list(fit_c,
+                                  test       = test.c,
+                                  outcome    = outcome,
+                                  population = population,
+                                  auc_override = auc_pair$arm.c),
+                             panel_args))
+
+  panels <- gridExtra::arrangeGrob(p_e, p_c, ncol = ncol)
+
+  diff_df <- .sroc_pair_diff_table(fit_e, fit_c, p_e, p_c,
+                                   test.e, test.c, arm.e, arm.c,
+                                   x, auc_pair, auc_ic, conf)
+
+  if (isTRUE(table)) {
+    tbl_grob <- gridExtra::tableGrob(
+      diff_df,
+      rows = NULL,
+      theme = gridExtra::ttheme_minimal(
+        core    = list(fg_params = list(cex = 0.85)),
+        colhead = list(fg_params = list(cex = 0.85, fontface = "bold"))
+      )
+    )
+    g <- gridExtra::arrangeGrob(panels, tbl_grob,
+                                nrow = 2, heights = c(5, 1))
+  } else {
+    g <- panels
+  }
+
+  attr(g, "panels")     <- list(.e = p_e, .c = p_c)
+  attr(g, "diff_table") <- diff_df
+  g
+}
+
+# Joint AUC + dAUC inference via dmetatools::AUC_comparison() when
+# available.  Returns a list with $arm.e / $arm.c (each: list(AUC, CI))
+# and $diff (list(est, ci, p)).  When dmetatools is missing, returns NULL
+# for all CIs and p (the panel `dta_sroc()` calls then compute per-arm
+# AUC point estimates themselves via the trapz path).
+.compute_auc_pair <- function(fit_e, fit_c, B = 2000, conf = 0.95) {
+  if (!requireNamespace("dmetatools", quietly = TRUE) ||
+      !requireNamespace("mada", quietly = TRUE)) {
+    warning("dmetatools/mada not installed; falling back to per-arm AUC ",
+            "without a joint dAUC p-value.\n",
+            "  Install with:\n",
+            "    install.packages('mada')\n",
+            "    remotes::install_github('nomahi/dmetatools')",
+            call. = FALSE)
+    return(list(arm.e = NULL, arm.c = NULL, diff = NULL))
+  }
+  for (pkg in c("mada", "MASS")) {
+    if (!paste0("package:", pkg) %in% search()) {
+      suppressPackageStartupMessages(attachNamespace(pkg))
+    }
+  }
+  ce <- .extract_counts(fit_e, NULL, "TP", "FP", "FN", "TN")
+  cc <- .extract_counts(fit_c, NULL, "TP", "FP", "FN", "TN")
+  alpha <- 1 - conf
+  res <- tryCatch(
+    dmetatools::AUC_comparison(ce$TP, ce$FP, ce$FN, ce$TN,
+                               cc$TP, cc$FP, cc$FN, cc$TN,
+                               B = B, alpha = alpha),
+    error = function(e) {
+      warning("dmetatools::AUC_comparison failed: ", conditionMessage(e),
+              call. = FALSE)
+      NULL
+    }
+  )
+  if (is.null(res)) return(list(arm.e = NULL, arm.c = NULL, diff = NULL))
+  list(
+    arm.e = list(AUC = unname(res$AUC1), CI = unname(res$AUC1_CI)),
+    arm.c = list(AUC = unname(res$AUC2), CI = unname(res$AUC2_CI)),
+    diff  = list(est = unname(res$dAUC),
+                 ci  = unname(res$dAUC_CI),
+                 p   = unname(res$pvalue))
+  )
+}
+
+# Build the differences table shown below dta_sroc_pair() panels.
+# Columns: Measure, <test.e>, <test.c>, Diff (.e - .c), P-value.
+# Sens/Spec p-values come from x$compare$lr_tests (Cochrane LR tests).
+# Sens/Spec diff CIs come from x$compare$differences (delta method),
+# sign-flipped if the comparison was estimated as (.c - .e) by the
+# pairwise model's level ordering.
+# AUC row uses auc_pair from dmetatools::AUC_comparison; omitted when
+# auc_ic = FALSE.
+.sroc_pair_diff_table <- function(fit_e, fit_c, p_e, p_c,
+                                  test.e, test.c, arm.e, arm.c,
+                                  x, auc_pair, auc_ic, conf) {
+  fmt <- function(est, lo, hi) {
+    if (is.na(est)) return("n/a")
+    if (is.na(lo) || is.na(hi)) return(sprintf("%.3f", est))
+    sprintf("%.3f (%.3f, %.3f)", est, lo, hi)
+  }
+  fmt_p <- function(p) {
+    if (is.null(p) || is.na(p)) return("n/a")
+    if (p < 0.001) "<0.001" else sprintf("%.3f", p)
+  }
+  arm_row <- function(fit) {
+    f <- .fixed_se_sp(fit$fit)
+    list(sens = .logit_ci(f$lsens, f$se_lsens, conf),
+         spec = .logit_ci(f$lspec, f$se_lspec, conf))
+  }
+  re <- arm_row(fit_e); rc <- arm_row(fit_c)
+
+  diff_sens <- diff_spec <- list(est = NA_real_, lo = NA_real_, hi = NA_real_)
+  p_sens <- p_spec <- NA_real_
+
+  cmp  <- if (inherits(x, "dta_pairwise_result")) x$compare else NULL
+  pair <- if (inherits(x, "dta_pairwise_result")) x$pair    else NULL
+
+  if (!is.null(cmp) && !is.null(cmp$differences) && !is.null(pair)) {
+    levs <- pair$levels
+    s <- if (identical(levs[1], arm.e)) 1 else -1
+    d <- cmp$differences
+    rs <- d[d$measure == "Absolute diff Sens", ][1, ]
+    rp <- d[d$measure == "Absolute diff Spec", ][1, ]
+    diff_sens <- list(est = s * rs$estimate,
+                      lo  = if (s == 1) rs$lci else -rs$uci,
+                      hi  = if (s == 1) rs$uci else -rs$lci)
+    diff_spec <- list(est = s * rp$estimate,
+                      lo  = if (s == 1) rp$lci else -rp$uci,
+                      hi  = if (s == 1) rp$uci else -rp$lci)
+    lr <- cmp$lr_tests
+    p_sens <- lr$p_value[grepl("Se", lr$comparison)][1]
+    p_spec <- lr$p_value[grepl("Sp", lr$comparison)][1]
+  } else {
+    diff_sens$est <- unname(re$sens["estimate"] - rc$sens["estimate"])
+    diff_spec$est <- unname(re$spec["estimate"] - rc$spec["estimate"])
+  }
+
+  out <- data.frame(
+    Measure = c("Sensitivity", "Specificity"),
+    e = c(fmt(re$sens["estimate"], re$sens["lci"], re$sens["uci"]),
+          fmt(re$spec["estimate"], re$spec["lci"], re$spec["uci"])),
+    c = c(fmt(rc$sens["estimate"], rc$sens["lci"], rc$sens["uci"]),
+          fmt(rc$spec["estimate"], rc$spec["lci"], rc$spec["uci"])),
+    Diff = c(fmt(diff_sens$est, diff_sens$lo, diff_sens$hi),
+             fmt(diff_spec$est, diff_spec$lo, diff_spec$hi)),
+    P = c(fmt_p(p_sens), fmt_p(p_spec)),
+    stringsAsFactors = FALSE
+  )
+
+  if (isTRUE(auc_ic)) {
+    auc_e    <- if (!is.null(auc_pair$arm.e)) auc_pair$arm.e$AUC else attr(p_e, "AUC")
+    auc_e_ci <- if (!is.null(auc_pair$arm.e)) auc_pair$arm.e$CI  else attr(p_e, "AUC_CI")
+    auc_c    <- if (!is.null(auc_pair$arm.c)) auc_pair$arm.c$AUC else attr(p_c, "AUC")
+    auc_c_ci <- if (!is.null(auc_pair$arm.c)) auc_pair$arm.c$CI  else attr(p_c, "AUC_CI")
+
+    if (!is.null(auc_pair$diff)) {
+      d_est <- auc_pair$diff$est; d_lo <- auc_pair$diff$ci[1]
+      d_hi  <- auc_pair$diff$ci[2]; p_auc <- auc_pair$diff$p
+    } else {
+      d_est <- if (!is.na(auc_e) && !is.na(auc_c)) auc_e - auc_c else NA_real_
+      d_lo  <- NA_real_; d_hi <- NA_real_; p_auc <- NA_real_
+    }
+
+    out <- rbind(out, data.frame(
+      Measure = "AUC",
+      e = fmt(auc_e,
+              if (is.null(auc_e_ci)) NA_real_ else auc_e_ci[1],
+              if (is.null(auc_e_ci)) NA_real_ else auc_e_ci[2]),
+      c = fmt(auc_c,
+              if (is.null(auc_c_ci)) NA_real_ else auc_c_ci[1],
+              if (is.null(auc_c_ci)) NA_real_ else auc_c_ci[2]),
+      Diff = fmt(d_est, d_lo, d_hi),
+      P = fmt_p(p_auc),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  names(out) <- c("Measure", test.e, test.c,
+                  sprintf("Diff (%s - %s)", test.e, test.c),
+                  "P-value")
+  out
 }
 
 # AUC dispatcher: prefer dmetatools::AUC_boot; fall back to trapezoid.
