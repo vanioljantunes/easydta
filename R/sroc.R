@@ -131,12 +131,18 @@ dta_sroc <- function(fit,
     sprintf("%.1f%%", 100 * i2_biv)
   }
 
-  rows_label <- c("Sens =", "Spec =", "AUC =", "I2 =")
-  rows_value <- c(
-    fmt2(sens_ci["estimate"], sens_ci["lci"], sens_ci["uci"]),
-    fmt2(spec_ci["estimate"], spec_ci["lci"], spec_ci["uci"]),
-    auc_text,
-    i2_text
+  # Two columns rendered as separate text annotations so the LEFT edge of
+  # every label (Sens / Spec / AUC / I2) lines up exactly, and the "="
+  # plus value all start at the same x to the right of the labels.
+  rows_label <- c("Sens", "Spec", "AUC", "I2")
+  rows_value <- paste(
+    "=",
+    c(
+      fmt2(sens_ci["estimate"], sens_ci["lci"], sens_ci["uci"]),
+      fmt2(spec_ci["estimate"], spec_ci["lci"], spec_ci["uci"]),
+      auc_text,
+      i2_text
+    )
   )
 
   # ---- Box geometry --------------------------------------------------------
@@ -170,11 +176,10 @@ dta_sroc <- function(fit,
   row_step <- 0.045
   ys_rows  <- seq(ys_title - row_step, by = -row_step, length.out = 4)
 
-  # Right-anchor the label at the separator, left-anchor the value just
-  # after it, so "Sens =" sits flush against "0.93 (0.91-0.95)".
-  x_separator <- bx$xmin + pad_x + label_w
-  x_label_anchor <- x_separator                 # hjust = 1
-  x_value_anchor <- x_separator + gap_lv        # hjust = 0
+  # Two left-anchored columns so every label (Sens / Spec / AUC / I2)
+  # starts at the same x and every "= value" string starts at the same x.
+  x_label_anchor <- bx$xmin + pad_x
+  x_value_anchor <- x_label_anchor + label_w + gap_lv
 
   # Bottom-left legend box (5 rows: study / sROC / CI / pred / summary).
   lg <- list(xmin = 0.00, xmax = 0.30,
@@ -250,7 +255,7 @@ dta_sroc <- function(fit,
     ggplot2::annotate("text",
                       x = x_label_anchor, y = ys_rows,
                       label = rows_label,
-                      fontface = "bold", hjust = 1, size = text_size) +
+                      fontface = "bold", hjust = 0, size = text_size) +
     ggplot2::annotate("text",
                       x = x_value_anchor, y = ys_rows,
                       label = rows_value,
