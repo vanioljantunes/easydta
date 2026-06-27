@@ -22,10 +22,11 @@
 #'             (0 + sens + spec | study_id),
 #'         data = long, family = binomial, nAGQ = 1)
 #'
-#' @param long   Data frame: either long format (from `dta_reshape()`, with
+#' @param data   Data frame: either long format (from `dta_reshape()`, with
 #'   `sens`/`spec`/`true`/`n` columns) OR a wide one-row-per-study 2x2 table
 #'   (with `TP`/`FP`/`FN`/`TN` columns). The format is auto-detected; pass
-#'   `wide` explicitly to override.
+#'   `wide` explicitly to override. (Also matched by `d=` via partial
+#'   argument matching.)
 #' @param nAGQ   Integer. 1 = Laplace (default, fastest, matches the Handbook
 #'   baseline). Increase (e.g. 5, 7) for adaptive Gauss-Hermite quadrature.
 #' @param wide   Logical, or `NA` (default) to auto-detect: a frame lacking the
@@ -45,7 +46,8 @@
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
 #' print(fit)
 #' @export
-dta_fit_single <- function(long, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
+dta_fit_single <- function(data, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
+  long <- data
   if (is.na(wide)) {
     wide <- !all(c("sens", "spec", "true", "n") %in% names(long))
   }
