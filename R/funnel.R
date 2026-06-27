@@ -41,10 +41,10 @@
 #'   (default `TRUE`).
 #' @param ...   Reserved.
 #'
-#' @return A `gtable` produced by `gridExtra::arrangeGrob()`; printed via
-#'   `grid::grid.draw()` when sent to a graphics device.  The Deeks
-#'   regression result is on `attr(., "deeks")` and the per-study data
-#'   on `attr(., "study_data")`.
+#' @return A `gtable` of class `"dta_funnel"`; its `print()` method draws it
+#'   on the current device, so it renders automatically when returned at the
+#'   top level (no `grid::grid.draw()` needed).  The Deeks regression result
+#'   is on `attr(., "deeks")` and the per-study data on `attr(., "study_data")`.
 #' @examples
 #' data(anti_ccp2)
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
@@ -268,5 +268,13 @@ dta_funnel <- function(fit,
                                 lnDOR_CI = pooled_lnDOR_ci,
                                 DOR = pooled_DOR,
                                 DOR_CI = pooled_DOR_ci)
+  class(g) <- c("dta_funnel", class(g))
   g
+}
+
+#' @export
+print.dta_funnel <- function(x, ...) {
+  grid::grid.newpage()
+  grid::grid.draw(x)
+  invisible(x)
 }

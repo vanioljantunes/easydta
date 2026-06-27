@@ -38,10 +38,10 @@ any study with a zero cell (default \code{0.5}).}
 \item{...}{Reserved.}
 }
 \value{
-A \code{gtable} produced by \code{gridExtra::arrangeGrob()}; printed via
-\code{grid::grid.draw()} when sent to a graphics device.  The Deeks
-regression result is on \code{attr(., "deeks")} and the per-study data
-on \code{attr(., "study_data")}.
+A \code{gtable} of class \code{"dta_funnel"}; its \code{print()} method draws it
+on the current device, so it renders automatically when returned at the
+top level (no \code{grid::grid.draw()} needed).  The Deeks regression result
+is on \code{attr(., "deeks")} and the per-study data on \code{attr(., "study_data")}.
 }
 \description{
 Cochrane-recommended publication-bias diagnostic for DTA meta-analysis

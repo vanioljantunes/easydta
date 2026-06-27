@@ -378,8 +378,9 @@ dta_sroc <- function(fit,
 #'   (e.g. `auc_method`, `labels`, `pred`).  `auc_ci` is set
 #'   automatically from `auc_ic` and should not be overridden.
 #'
-#' @return A `gtable` produced by `gridExtra::arrangeGrob()`; it prints
-#'   itself via `grid::grid.draw()` when sent to a graphics device.
+#' @return A `gtable` of class `"dta_sroc_pair"`; its `print()` method draws
+#'   it on the current device, so it renders automatically when returned at
+#'   the top level (no `grid::grid.draw()` needed).
 #'   `attr(., "panels")` holds the underlying ggplot list and
 #'   `attr(., "diff_table")` holds the rendered data.frame.
 #' @examples
@@ -470,7 +471,15 @@ dta_sroc_pair <- function(x,
 
   attr(g, "panels")     <- list(.e = p_e, .c = p_c)
   attr(g, "diff_table") <- diff_df
+  class(g) <- c("dta_sroc_pair", class(g))
   g
+}
+
+#' @export
+print.dta_sroc_pair <- function(x, ...) {
+  grid::grid.newpage()
+  grid::grid.draw(x)
+  invisible(x)
 }
 
 # Joint AUC + dAUC inference via dmetatools::AUC_comparison() when
