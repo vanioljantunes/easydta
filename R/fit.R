@@ -199,6 +199,12 @@ dta_fit_pairwise <- function(long,
 #'      labels, ready for `dta_forest()` and `dta_sroc()`.
 #'
 #' @inheritParams dta_reshape_pairwise
+#' @param intervention.label  Display label for the intervention / index arm
+#'   (the `.e` columns).  Becomes the arm's name in `res$arms` and the
+#'   `intervention` role used by `dta_forest()` / `dta_funnel()` /
+#'   `dta_sroc_pair()`.  Default `"Intervention"`.
+#' @param control.label  Display label for the control / comparator arm (the
+#'   `.c` columns); the `control` role.  Default `"Control"`.
 #' @param variance  Random-effects structure for the comparison: `"equal"`
 #'   (default, model B) or `"unequal"` (model E). See [dta_fit_pairwise()].
 #' @param nAGQ  Integer; Laplace by default (passed to both fitters).
@@ -207,20 +213,21 @@ dta_fit_pairwise <- function(long,
 #'
 #' @return An S3 object of class `"dta_pairwise_result"` with components:
 #'   `long`, `pair` (the `dta_pairwise` fit), `compare` (the `dta_compare`
-#'   result), `arms` (named list of two `dta_single` fits), and `labels`
-#'   (the intervention / control labels).
+#'   result), `arms` (named list of two `dta_single` fits keyed by the two
+#'   labels), and `labels` (a list mapping the `intervention` / `control`
+#'   roles to those arm names).
 #'
 #' @examples
 #' data(schuetz)
 #' res <- dta_pairwise(schuetz, studlab = "studlab",
-#'                     intervention = "CT", control = "MRI")
+#'                     intervention.label = "CT", control.label = "MRI")
 #' print(res)
 #' @export
 dta_pairwise <- function(data,
-                         author       = "author",
-                         year         = "year",
-                         intervention = "Intervention",
-                         control      = "Control",
+                         author            = "author",
+                         year              = "year",
+                         intervention.label = "Intervention",
+                         control.label      = "Control",
                          tp.e         = "TP.e",
                          fp.e         = "FP.e",
                          fn.e         = "FN.e",
@@ -239,8 +246,8 @@ dta_pairwise <- function(data,
     data,
     author       = author,
     year         = year,
-    intervention = intervention,
-    control      = control,
+    intervention = intervention.label,
+    control      = control.label,
     tp.e = tp.e, fp.e = fp.e, fn.e = fn.e, tn.e = tn.e,
     tp.c = tp.c, fp.c = fp.c, fn.c = fn.c, tn.c = tn.c,
     studlab      = studlab,
@@ -252,17 +259,19 @@ dta_pairwise <- function(data,
   cmp  <- dta_compare(pair, conf = conf)
 
   arm_rows <- function(label) long[long[[test_var]] == label, , drop = FALSE]
-  fit_e <- dta_fit_single(arm_rows(intervention), nAGQ = nAGQ, conf = conf)
-  fit_c <- dta_fit_single(arm_rows(control),      nAGQ = nAGQ, conf = conf)
+  fit_e <- dta_fit_single(arm_rows(intervention.label), nAGQ = nAGQ, conf = conf)
+  fit_c <- dta_fit_single(arm_rows(control.label),      nAGQ = nAGQ, conf = conf)
 
-  arms <- stats::setNames(list(fit_e, fit_c), c(intervention, control))
+  arms <- stats::setNames(list(fit_e, fit_c),
+                          c(intervention.label, control.label))
 
   out <- list(
     long     = long,
     pair     = pair,
     compare  = cmp,
     arms     = arms,
-    labels   = list(intervention = intervention, control = control),
+    labels   = list(intervention = intervention.label,
+                    control       = control.label),
     test_var = test_var
   )
   class(out) <- "dta_pairwise_result"

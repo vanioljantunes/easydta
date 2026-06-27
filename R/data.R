@@ -53,7 +53,7 @@
 #' }
 #' @details Distributed as `inst/extdata/schuetz.xlsx` (single sheet,
 #'   `schuetz`).  Use with [dta_pairwise()], naming the arms via
-#'   `intervention = "CT"`, `control = "MRI"`.
+#'   `intervention.label = "CT"`, `control.label = "MRI"`.
 #' @source Cochrane Handbook for DTA Reviews v2.0 (2023), Appendix 12
 #'   (`schuetz.csv`), direct-comparison subset (studies with both tests).
 #' @examples

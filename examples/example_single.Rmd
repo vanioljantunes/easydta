@@ -66,7 +66,7 @@ dev.off()
 
 ```{r save_sroc}
 png(paste0(mwd, "/sroc_ccp2.png"), width = 1200, height = 1000, res = 150)
-p <- dta_sroc(fit, test = "anti-CCP2",
+p <- dta_sroc(fit, test.label = "anti-CCP2",
               outcome = "rheumatoid arthritis",
               population = "adults")
 print(p)
@@ -86,7 +86,7 @@ Deeks p; p < 0.05 suggests asymmetry consistent with publication bias).
 ```{r save_funnel}
 png(paste0(mwd, "/funnel_ccp2.png"), width = 1200, height = 1100, res = 150)
 dta_funnel(fit,
-           test       = "anti-CCP2",
+           test.label = "anti-CCP2",
            outcome    = "rheumatoid arthritis",
            population = "adults")
 dev.off()

@@ -10,8 +10,8 @@ Coupled sensitivity / specificity forest plots.
 \code{\link[=dta_forest]{dta_forest()}} draws a single composite of aligned panels (study labels,
 2x2 counts, sensitivity forest, specificity forest, numeric estimates) and
 draws itself on the current device. For a \code{dta_single} fit, pass it
-directly. For a pairwise result, select an arm with \code{arm = "<test>"}
-(e.g. \code{arm = "CT"}).
+directly. For a pairwise result, pick the arm by role with
+\code{test = intervention} or \code{test = control}.
 }
 \examples{
 data(anti_ccp2)
@@ -21,8 +21,8 @@ dta_forest(fit)
 \donttest{
 data(schuetz)
 res <- dta_pairwise(schuetz, studlab = "studlab",
-                    intervention = "CT", control = "MRI")
-dta_forest(res, arm = "CT")
+                    intervention.label = "CT", control.label = "MRI")
+dta_forest(res, test = intervention)
 }
 
 }

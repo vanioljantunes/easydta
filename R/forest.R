@@ -34,11 +34,12 @@
 #' Coupled sensitivity / specificity forest plot
 #'
 #' @param fit    Either a `dta_single` object, or a `dta_pairwise_result`
-#'   (output of `dta_compare_tests()`) -- in which case `arm` selects
-#'   which test arm to plot.  The 2x2 counts and the study labels are
+#'   (from `dta_pairwise()` / `dta_compare_tests()`) -- in which case `test`
+#'   selects which arm to plot.  The 2x2 counts and the study labels are
 #'   pulled from `fit$long`, so no separate data frame is needed.
-#' @param arm    Required when `fit` is a `dta_pairwise_result`: name of
-#'   the arm in `fit$arms` to plot (e.g. `"CCP1"`).  Ignored otherwise.
+#' @param test   Required when `fit` is a `dta_pairwise_result`: which arm to
+#'   plot, given as the role `intervention` or `control` (a bare word or a
+#'   string); the arm name is looked up from the result.  Ignored otherwise.
 #' @param conf   Confidence level (default 0.95).
 #' @param digits Numeric display digits for the value columns (default 2).
 #' @param just   Horizontal justification of the numeric value columns
@@ -56,22 +57,20 @@
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
 #' dta_forest(fit)
 #' @export
-dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2,
+dta_forest <- function(fit, test, conf = 0.95, digits = 2,
                        just = c("center", "left", "right"),
                        title = NULL, legend = NULL) {
+  test_sym <- substitute(test)
   just     <- match.arg(just)
   val_x    <- switch(just, center = 0.5, left = 0.05, right = 0.95)
   val_hjust<- switch(just, center = 0.5, left = 0,    right = 1)
   if (inherits(fit, "dta_pairwise_result")) {
-    if (is.null(arm))
-      stop("`fit` is a dta_pairwise_result; pass `arm = \"<test-name>\"` ",
-           "(one of: ", paste(shQuote(names(fit$arms)), collapse = ", "), ").")
-    if (!arm %in% names(fit$arms))
-      stop("Arm '", arm, "' not found in fit$arms (available: ",
-           paste(shQuote(names(fit$arms)), collapse = ", "), ").")
-    fit <- fit$arms[[arm]]
-  } else if (!is.null(arm)) {
-    warning("`arm` is ignored when `fit` is a dta_single object.",
+    if (missing(test))
+      stop("`fit` is a dta_pairwise_result; pass `test = intervention` or ",
+           "`test = control`.")
+    fit <- fit$arms[[.role_to_arm(.role_from(test_sym, test), fit)]]
+  } else if (!missing(test)) {
+    warning("`test` is ignored when `fit` is a dta_single object.",
             call. = FALSE)
   }
   stopifnot(inherits(fit, "dta_single"))

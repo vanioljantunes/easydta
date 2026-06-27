@@ -22,7 +22,7 @@ per-arm \code{\link[=dta_forest]{dta_forest()}} / \code{\link[=dta_funnel]{dta_f
 \examples{
 data(schuetz)
 res <- dta_pairwise(schuetz, studlab = "studlab",
-                    intervention = "CT", control = "MRI")
+                    intervention.label = "CT", control.label = "MRI")
 print(res)
 
 }

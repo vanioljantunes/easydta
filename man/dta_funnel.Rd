@@ -6,8 +6,8 @@
 \usage{
 dta_funnel(
   fit,
-  arm = NULL,
-  test = "test",
+  test,
+  test.label = NULL,
   outcome = "outcome",
   population = "population",
   continuity = 0.5,
@@ -18,14 +18,16 @@ dta_funnel(
 }
 \arguments{
 \item{fit}{Either a \code{dta_single} object or a \code{dta_pairwise_result}
-(output of \code{dta_compare_tests()}); when pairwise, pass \code{arm} to
-choose which test arm to plot.}
+(from \code{dta_pairwise()} / \code{dta_compare_tests()}); when pairwise, pass
+\code{test} to choose which arm to plot.}
 
-\item{arm}{Required when \code{fit} is a \code{dta_pairwise_result}: name of
-the arm in \code{fit$arms} to plot.  Ignored otherwise.}
+\item{test}{Required when \code{fit} is a \code{dta_pairwise_result}: which arm to
+plot, given as the role \code{intervention} or \code{control} (a bare word or a
+string).  Ignored otherwise.}
 
-\item{test, outcome, population}{Title fields ("Deeks funnel of \if{html}{\out{<test>}}
-to predict \if{html}{\out{<outcome>}} in \if{html}{\out{<population>}}").}
+\item{test.label, outcome, population}{Title fields ("Deeks funnel of
+<test.label> to predict \if{html}{\out{<outcome>}} in \if{html}{\out{<population>}}").  For a pairwise
+result \code{test.label} defaults to the selected arm's name.}
 
 \item{continuity}{Continuity correction added to all four 2x2 cells of
 any study with a zero cell (default \code{0.5}).}
@@ -53,6 +55,6 @@ from the Deeks weighted linear regression test.
 \examples{
 data(anti_ccp2)
 fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-dta_funnel(fit, test = "anti-CCP2",
+dta_funnel(fit, test.label = "anti-CCP2",
            outcome = "rheumatoid arthritis", population = "adults")
 }

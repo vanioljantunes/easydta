@@ -17,7 +17,7 @@ draws itself when printed. For a pairwise result, select an arm with \code{arm}.
 \examples{
 data(anti_ccp2)
 fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-dta_funnel(fit, test = "anti-CCP2",
+dta_funnel(fit, test.label = "anti-CCP2",
            outcome = "rheumatoid arthritis", population = "adults")
 
 }

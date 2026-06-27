@@ -86,7 +86,7 @@ NULL
 #' @examples
 #' data(schuetz)
 #' res <- dta_pairwise(schuetz, studlab = "studlab",
-#'                     intervention = "CT", control = "MRI")
+#'                     intervention.label = "CT", control.label = "MRI")
 #' print(res)
 #'
 #' @seealso [dta_pairwise()], [dta_compare_tests()], [dta_sroc_pair()],
@@ -102,8 +102,8 @@ NULL
 #' [dta_forest()] draws a single composite of aligned panels (study labels,
 #' 2x2 counts, sensitivity forest, specificity forest, numeric estimates) and
 #' draws itself on the current device. For a `dta_single` fit, pass it
-#' directly. For a pairwise result, select an arm with `arm = "<test>"`
-#' (e.g. `arm = "CT"`).
+#' directly. For a pairwise result, pick the arm by role with
+#' `test = intervention` or `test = control`.
 #'
 #' @examples
 #' data(anti_ccp2)
@@ -113,8 +113,8 @@ NULL
 #' \donttest{
 #' data(schuetz)
 #' res <- dta_pairwise(schuetz, studlab = "studlab",
-#'                     intervention = "CT", control = "MRI")
-#' dta_forest(res, arm = "CT")
+#'                     intervention.label = "CT", control.label = "MRI")
+#' dta_forest(res, test = intervention)
 #' }
 #'
 #' @seealso [dta_forest()], the next guide [easydta-5-funnels].
@@ -136,7 +136,7 @@ NULL
 #' @examples
 #' data(anti_ccp2)
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-#' dta_funnel(fit, test = "anti-CCP2",
+#' dta_funnel(fit, test.label = "anti-CCP2",
 #'            outcome = "rheumatoid arthritis", population = "adults")
 #'
 #' @seealso [dta_funnel()], the package overview [easydta-package].

@@ -29,7 +29,7 @@ suffixed 2x2 counts.
 \details{
 Distributed as \code{inst/extdata/schuetz.xlsx} (single sheet,
 \code{schuetz}).  Use with \code{\link[=dta_pairwise]{dta_pairwise()}}, naming the arms via
-\code{intervention = "CT"}, \code{control = "MRI"}.
+\code{intervention.label = "CT"}, \code{control.label = "MRI"}.
 }
 \examples{
 data(schuetz)

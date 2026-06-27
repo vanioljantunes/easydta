@@ -31,21 +31,23 @@ head(d)
 # pipeline out (reshape + LR fit + comparison + per-arm single fits).
 # `.e` = CT (index), `.c` = MRI (comparator).
 res <- dta_pairwise(d,
-                    studlab      = "studlab",
-                    intervention = "CT",
-                    control      = "MRI")
+                    studlab            = "studlab",
+                    intervention.label = "CT",
+                    control.label      = "MRI")
 print(res)
 ```
 
-```{r save_forest_CT}
+```{r save_forest_intervention}
+# Pick the arm by role: `intervention` (.e) or `control` (.c). The arm name
+# (here "CT" / "MRI") is looked up from the result.
 png("forest_CT.png", width = 1400, height = 700, res = 150)
-dta_forest(res, arm = "CT")
+dta_forest(res, test = intervention)
 dev.off()
 ```
 
-```{r save_forest_MRI}
+```{r save_forest_control}
 png("forest_MRI.png", width = 1400, height = 1000, res = 150)
-dta_forest(res, arm = "MRI")
+dta_forest(res, test = control)
 dev.off()
 ```
 
@@ -65,8 +67,6 @@ dev.off()
 # The returned object draws itself when printed (no grid:: needed).
 png("sroc_pairwise.png", width = 1800, height = 1000, res = 150)
 dta_sroc_pair(res,
-              arm.e  = "CT",  test.e = "CT",
-              arm.c  = "MRI", test.c = "MRI",
               outcome    = "coronary artery disease",
               population = "adults with suspected CAD",
               auc_ic     = TRUE,
@@ -79,15 +79,13 @@ dev.off()
 # funnel plot of ln(DOR) against 1/sqrt(ESS) plus the weighted-regression
 # Deeks test for funnel asymmetry (proxy for publication bias).  Per arm.
 png("funnel_CT.png", width = 1200, height = 1100, res = 150)
-dta_funnel(res, arm = "CT",
-           test = "CT",
+dta_funnel(res, test = intervention,
            outcome    = "coronary artery disease",
            population = "adults with suspected CAD")
 dev.off()
 
 png("funnel_MRI.png", width = 1200, height = 1100, res = 150)
-dta_funnel(res, arm = "MRI",
-           test = "MRI",
+dta_funnel(res, test = control,
            outcome    = "coronary artery disease",
            population = "adults with suspected CAD")
 dev.off()
