@@ -2,8 +2,6 @@
 % Please edit documentation in R/guides.R
 \name{easydta-3-pairwise}
 \alias{easydta-3-pairwise}
-\alias{easydta-pairwise}
-\alias{pairwise_analysis}
 \title{easydta guide 3: Pairwise analysis}
 \description{
 Compare two diagnostic tests head-to-head (Cochrane Handbook Appendix 12).

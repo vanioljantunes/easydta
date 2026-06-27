@@ -2,8 +2,6 @@
 % Please edit documentation in R/guides.R
 \name{easydta-1-data-preparation}
 \alias{easydta-1-data-preparation}
-\alias{easydta-data-preparation}
-\alias{data_preparation}
 \title{easydta guide 1: Data preparation}
 \description{
 How to shape diagnostic test accuracy (DTA) data for \code{easydta} and which

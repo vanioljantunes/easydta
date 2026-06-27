@@ -2,8 +2,6 @@
 % Please edit documentation in R/guides.R
 \name{easydta-4-forests}
 \alias{easydta-4-forests}
-\alias{easydta-forests}
-\alias{forest_plots}
 \title{easydta guide 4: Forest plots}
 \description{
 Coupled sensitivity / specificity forest plots.

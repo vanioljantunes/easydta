@@ -39,7 +39,6 @@
 #' @seealso [dta_reshape()], [dta_reshape_pairwise()],
 #'   the next guide [easydta-2-single-arm].
 #' @name easydta-1-data-preparation
-#' @aliases easydta-data-preparation data_preparation
 NULL
 
 #' easydta guide 2: Single-arm analysis
@@ -64,7 +63,6 @@ NULL
 #' @seealso [dta_fit_single()], [dta_summary()], [dta_derived()], [dta_sroc()],
 #'   the next guide [easydta-3-pairwise].
 #' @name easydta-2-single-arm
-#' @aliases easydta-single-arm single_arm_analysis
 NULL
 
 #' easydta guide 3: Pairwise analysis
@@ -94,7 +92,6 @@ NULL
 #' @seealso [dta_pairwise()], [dta_compare_tests()], [dta_sroc_pair()],
 #'   the next guide [easydta-4-forests].
 #' @name easydta-3-pairwise
-#' @aliases easydta-pairwise pairwise_analysis
 NULL
 
 #' easydta guide 4: Forest plots
@@ -122,7 +119,6 @@ NULL
 #'
 #' @seealso [dta_forest()], the next guide [easydta-5-funnels].
 #' @name easydta-4-forests
-#' @aliases easydta-forests forest_plots
 NULL
 
 #' easydta guide 5: Funnel plots
@@ -145,5 +141,4 @@ NULL
 #'
 #' @seealso [dta_funnel()], the package overview [easydta-package].
 #' @name easydta-5-funnels
-#' @aliases easydta-funnels funnel_plots
 NULL
