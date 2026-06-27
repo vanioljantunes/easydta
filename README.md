@@ -34,7 +34,8 @@ explicitly endorses.
   contour-enhanced pseudo-CI bands and the Deeks asymmetry test.
 - **Sensible defaults; few arguments** — every plot function takes
   `test`/`outcome`/`population` for a Cochrane-style title, and every
-  composite plot returns a single `gtable` you can `grid::grid.draw()`.
+  composite plot returns a single self-drawing `gtable` (it renders when
+  printed — no `grid::grid.draw()` needed).
 
 ---
 

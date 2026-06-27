@@ -13,7 +13,7 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 if (!requireNamespace("easydta", quietly = TRUE)) {
   remotes::install_github("vanioljantunes/easydta")
 }
-pacman::p_load(ggplot2, grid, gridExtra, easydta)
+pacman::p_load(ggplot2, easydta)
 ```
 
 ```{r load_data}
@@ -80,11 +80,9 @@ Deeks p; p < 0.05 suggests asymmetry consistent with publication bias).
 
 ```{r save_funnel}
 png("funnel_ccp2.png", width = 1200, height = 1100, res = 150)
-grid::grid.draw(
-  dta_funnel(fit,
-             test       = "anti-CCP2",
-             outcome    = "rheumatoid arthritis",
-             population = "adults")
-)
+dta_funnel(fit,
+           test       = "anti-CCP2",
+           outcome    = "rheumatoid arthritis",
+           population = "adults")
 dev.off()
 ```

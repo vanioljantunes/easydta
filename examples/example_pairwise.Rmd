@@ -13,7 +13,7 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 if (!requireNamespace("easydta", quietly = TRUE)) {
   remotes::install_github("vanioljantunes/easydta")
 }
-pacman::p_load(ggplot2, grid, gridExtra, easydta)
+pacman::p_load(ggplot2, easydta)
 ```
 
 ```{r load_data}
@@ -49,29 +49,6 @@ dta_forest(res, arm = "MRI")
 dev.off()
 ```
 
-```{r save_funnel}
-# Cochrane Handbook ch. 10.6.4 / Deeks, Macaskill & Irwig (2005):
-# funnel plot of ln(DOR) against 1/sqrt(ESS) plus the weighted-regression
-# Deeks test for funnel asymmetry (proxy for publication bias).  Per arm.
-png("funnel_CT.png", width = 1200, height = 1100, res = 150)
-grid::grid.draw(
-  dta_funnel(res, arm = "CT",
-             test = "CT",
-             outcome    = "coronary artery disease",
-             population = "adults with suspected CAD")
-)
-dev.off()
-
-png("funnel_MRI.png", width = 1200, height = 1100, res = 150)
-grid::grid.draw(
-  dta_funnel(res, arm = "MRI",
-             test = "MRI",
-             outcome    = "coronary artery disease",
-             population = "adults with suspected CAD")
-)
-dev.off()
-```
-
 ```{r save_sroc_pairwise}
 # Per-arm SROC (separate panels, saved side by side).  `.e` is the index
 # arm (CT) and `.c` is the comparator arm (MRI).  Beneath the panels a
@@ -84,14 +61,33 @@ dev.off()
 #     dAUC, their CIs, and the p-value for dAUC = 0.  Set
 #     `auc_ic = FALSE` to skip the bootstrap (faster preview; AUC row is
 #     omitted and the in-panel AUC summary loses its CI).
+# The returned object draws itself when printed (no grid:: needed).
 png("sroc_pairwise.png", width = 1800, height = 1000, res = 150)
-g <- dta_sroc_pair(res,
-                   arm.e  = "CT",  test.e = "CT",
-                   arm.c  = "MRI", test.c = "MRI",
-                   outcome    = "coronary artery disease",
-                   population = "adults with suspected CAD",
-                   auc_ic     = TRUE,
-                   B          = 2000)
-grid::grid.draw(g)
+dta_sroc_pair(res,
+              arm.e  = "CT",  test.e = "CT",
+              arm.c  = "MRI", test.c = "MRI",
+              outcome    = "coronary artery disease",
+              population = "adults with suspected CAD",
+              auc_ic     = TRUE,
+              B          = 2000)
+dev.off()
+```
+
+```{r save_funnel}
+# Cochrane Handbook ch. 10.6.4 / Deeks, Macaskill & Irwig (2005):
+# funnel plot of ln(DOR) against 1/sqrt(ESS) plus the weighted-regression
+# Deeks test for funnel asymmetry (proxy for publication bias).  Per arm.
+png("funnel_CT.png", width = 1200, height = 1100, res = 150)
+dta_funnel(res, arm = "CT",
+           test = "CT",
+           outcome    = "coronary artery disease",
+           population = "adults with suspected CAD")
+dev.off()
+
+png("funnel_MRI.png", width = 1200, height = 1100, res = 150)
+dta_funnel(res, arm = "MRI",
+           test = "MRI",
+           outcome    = "coronary artery disease",
+           population = "adults with suspected CAD")
 dev.off()
 ```

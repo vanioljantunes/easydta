@@ -54,8 +54,9 @@ the bootstrap is much faster and useful for previewing.}
 automatically from \code{auc_ic} and should not be overridden.}
 }
 \value{
-A \code{gtable} produced by \code{gridExtra::arrangeGrob()}; it prints
-itself via \code{grid::grid.draw()} when sent to a graphics device.
+A \code{gtable} of class \code{"dta_sroc_pair"}; its \code{print()} method draws
+it on the current device, so it renders automatically when returned at
+the top level (no \code{grid::grid.draw()} needed).
 \code{attr(., "panels")} holds the underlying ggplot list and
 \code{attr(., "diff_table")} holds the rendered data.frame.
 }
