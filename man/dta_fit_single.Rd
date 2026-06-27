@@ -4,13 +4,14 @@
 \alias{dta_fit_single}
 \title{Fit the bivariate binomial GLMM for a single diagnostic test}
 \usage{
-dta_fit_single(long, nAGQ = 1L, wide = NA, conf = 0.95, ...)
+dta_fit_single(data, nAGQ = 1L, wide = NA, conf = 0.95, ...)
 }
 \arguments{
-\item{long}{Data frame: either long format (from \code{dta_reshape()}, with
+\item{data}{Data frame: either long format (from \code{dta_reshape()}, with
 \code{sens}/\code{spec}/\code{true}/\code{n} columns) OR a wide one-row-per-study 2x2 table
 (with \code{TP}/\code{FP}/\code{FN}/\code{TN} columns). The format is auto-detected; pass
-\code{wide} explicitly to override.}
+\code{wide} explicitly to override. (Also matched by \verb{d=} via partial
+argument matching.)}
 
 \item{nAGQ}{Integer. 1 = Laplace (default, fastest, matches the Handbook
 baseline). Increase (e.g. 5, 7) for adaptive Gauss-Hermite quadrature.}
