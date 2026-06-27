@@ -6,6 +6,31 @@
 #               appendices to avoid duplication across the other files.
 # ============================================================================
 
+# -- Arm-role resolution -----------------------------------------------------
+#
+# Accepts a test selector as either a bare word (`intervention` / `control`)
+# or a string ("intervention"/"control", partial match allowed), and returns
+# the canonical role.  `sym` is substitute(test) from the caller; `val` is the
+# (lazy) promise -- it is only forced when `sym` is not already a role word, so
+# a bare `intervention` with no such object in scope still resolves.
+.role_from <- function(sym, val) {
+  cand <- if (is.symbol(sym)) as.character(sym) else NA_character_
+  if (is.na(cand) || !cand %in% c("intervention", "control")) {
+    cand <- tryCatch(as.character(val), error = function(e) cand)
+  }
+  match.arg(cand, c("intervention", "control"))
+}
+
+# Resolve a test selector to the arm name stored in a dta_pairwise_result.
+.role_to_arm <- function(role, res) {
+  arm <- res$labels[[role]]
+  if (is.null(arm) || !arm %in% names(res$arms)) {
+    stop("Could not resolve the '", role, "' arm in this result (available: ",
+         paste(shQuote(names(res$arms)), collapse = ", "), ").")
+  }
+  arm
+}
+
 # -- Logit helpers -----------------------------------------------------------
 
 .logit <- function(p) stats::qlogis(p)

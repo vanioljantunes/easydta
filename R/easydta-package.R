@@ -52,7 +52,7 @@
 #'
 #' data(schuetz)
 #' res <- dta_pairwise(schuetz, studlab = "studlab",
-#'                     intervention = "CT", control = "MRI")
+#'                     intervention.label = "CT", control.label = "MRI")
 #' print(res)
 #'
 #' @keywords internal

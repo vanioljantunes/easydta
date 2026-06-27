@@ -8,8 +8,8 @@ dta_pairwise(
   data,
   author = "author",
   year = "year",
-  intervention = "Intervention",
-  control = "Control",
+  intervention.label = "Intervention",
+  control.label = "Control",
   tp.e = "TP.e",
   fp.e = "FP.e",
   fn.e = "FN.e",
@@ -32,9 +32,13 @@ dta_pairwise(
 
 \item{year}{Column name of the publication year.}
 
-\item{intervention}{Label to assign to the \code{.e} rows (e.g. "CT").}
+\item{intervention.label}{Display label for the intervention / index arm
+(the \code{.e} columns).  Becomes the arm's name in \code{res$arms} and the
+\code{intervention} role used by \code{dta_forest()} / \code{dta_funnel()} /
+\code{dta_sroc_pair()}.  Default \code{"Intervention"}.}
 
-\item{control}{Label to assign to the \code{.c} rows (e.g. "MRI").}
+\item{control.label}{Display label for the control / comparator arm (the
+\code{.c} columns); the \code{control} role.  Default \code{"Control"}.}
 
 \item{tp.e, fp.e, fn.e, tn.e}{Experimental-arm 2x2 column names.}
 
@@ -58,8 +62,9 @@ and by \code{dta_compare()} (default 0.95).}
 \value{
 An S3 object of class \code{"dta_pairwise_result"} with components:
 \code{long}, \code{pair} (the \code{dta_pairwise} fit), \code{compare} (the \code{dta_compare}
-result), \code{arms} (named list of two \code{dta_single} fits), and \code{labels}
-(the intervention / control labels).
+result), \code{arms} (named list of two \code{dta_single} fits keyed by the two
+labels), and \code{labels} (a list mapping the \code{intervention} / \code{control}
+roles to those arm names).
 }
 \description{
 Takes a single wide data frame -- one row per study, with \code{.e}
@@ -79,6 +84,6 @@ labels, ready for \code{dta_forest()} and \code{dta_sroc()}.
 \examples{
 data(schuetz)
 res <- dta_pairwise(schuetz, studlab = "studlab",
-                    intervention = "CT", control = "MRI")
+                    intervention.label = "CT", control.label = "MRI")
 print(res)
 }

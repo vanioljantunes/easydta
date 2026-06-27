@@ -6,7 +6,7 @@
 \usage{
 dta_forest(
   fit,
-  arm = NULL,
+  test,
   conf = 0.95,
   digits = 2,
   just = c("center", "left", "right"),
@@ -16,12 +16,13 @@ dta_forest(
 }
 \arguments{
 \item{fit}{Either a \code{dta_single} object, or a \code{dta_pairwise_result}
-(output of \code{dta_compare_tests()}) -- in which case \code{arm} selects
-which test arm to plot.  The 2x2 counts and the study labels are
+(from \code{dta_pairwise()} / \code{dta_compare_tests()}) -- in which case \code{test}
+selects which arm to plot.  The 2x2 counts and the study labels are
 pulled from \code{fit$long}, so no separate data frame is needed.}
 
-\item{arm}{Required when \code{fit} is a \code{dta_pairwise_result}: name of
-the arm in \code{fit$arms} to plot (e.g. \code{"CCP1"}).  Ignored otherwise.}
+\item{test}{Required when \code{fit} is a \code{dta_pairwise_result}: which arm to
+plot, given as the role \code{intervention} or \code{control} (a bare word or a
+string); the arm name is looked up from the result.  Ignored otherwise.}
 
 \item{conf}{Confidence level (default 0.95).}
 

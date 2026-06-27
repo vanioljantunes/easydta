@@ -6,7 +6,7 @@
 \usage{
 dta_sroc(
   fit,
-  test = "test",
+  test.label = "test",
   outcome = "outcome",
   population = "population",
   ci = TRUE,
@@ -23,13 +23,13 @@ dta_sroc(
 \arguments{
 \item{fit}{A \code{dta_single} object.}
 
-\item{test}{Test name shown in the main title (default "test").}
+\item{test.label}{Test name shown in the main title (default "test").}
 
 \item{outcome}{Outcome name shown in the main title (default "outcome").}
 
 \item{population}{Population name shown in the main title (default
 "population"). The title is rendered as
-\verb{sROC of <test> to predict <outcome> in <population>}.}
+\verb{sROC of <test.label> to predict <outcome> in <population>}.}
 
 \item{ci}{Draw the 95\% confidence region?  (default TRUE)}
 
@@ -63,6 +63,6 @@ SROC plot with 95\% confidence and prediction regions + AUC
 \examples{
 data(anti_ccp2)
 fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-dta_sroc(fit, test = "anti-CCP2",
+dta_sroc(fit, test.label = "anti-CCP2",
          outcome = "rheumatoid arthritis", population = "adults")
 }

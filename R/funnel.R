@@ -28,12 +28,14 @@
 #' from the Deeks weighted linear regression test.
 #'
 #' @param fit   Either a `dta_single` object or a `dta_pairwise_result`
-#'   (output of `dta_compare_tests()`); when pairwise, pass `arm` to
-#'   choose which test arm to plot.
-#' @param arm   Required when `fit` is a `dta_pairwise_result`: name of
-#'   the arm in `fit$arms` to plot.  Ignored otherwise.
-#' @param test,outcome,population Title fields ("Deeks funnel of <test>
-#'   to predict <outcome> in <population>").
+#'   (from `dta_pairwise()` / `dta_compare_tests()`); when pairwise, pass
+#'   `test` to choose which arm to plot.
+#' @param test  Required when `fit` is a `dta_pairwise_result`: which arm to
+#'   plot, given as the role `intervention` or `control` (a bare word or a
+#'   string).  Ignored otherwise.
+#' @param test.label,outcome,population Title fields ("Deeks funnel of
+#'   <test.label> to predict <outcome> in <population>").  For a pairwise
+#'   result `test.label` defaults to the selected arm's name.
 #' @param continuity Continuity correction added to all four 2x2 cells of
 #'   any study with a zero cell (default `0.5`).
 #' @param conf  Confidence level for the pooled DOR CI (default 0.95).
@@ -48,35 +50,36 @@
 #' @examples
 #' data(anti_ccp2)
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-#' dta_funnel(fit, test = "anti-CCP2",
+#' dta_funnel(fit, test.label = "anti-CCP2",
 #'            outcome = "rheumatoid arthritis", population = "adults")
 #' @export
 dta_funnel <- function(fit,
-                       arm = NULL,
-                       test       = "test",
+                       test,
+                       test.label = NULL,
                        outcome    = "outcome",
                        population = "population",
                        continuity = 0.5,
                        conf  = 0.95,
                        table = TRUE,
                        ...) {
+  test_sym <- substitute(test)
   if (!requireNamespace("metafor", quietly = TRUE)) {
     stop("Package 'metafor' is required for dta_funnel().\n",
          "  install.packages('metafor')")
   }
 
   if (inherits(fit, "dta_pairwise_result")) {
-    if (is.null(arm))
-      stop("`fit` is a dta_pairwise_result; pass `arm = \"<test-name>\"` ",
-           "(one of: ", paste(shQuote(names(fit$arms)), collapse = ", "), ").")
-    if (!arm %in% names(fit$arms))
-      stop("Arm '", arm, "' not found in fit$arms (available: ",
-           paste(shQuote(names(fit$arms)), collapse = ", "), ").")
+    if (missing(test))
+      stop("`fit` is a dta_pairwise_result; pass `test = intervention` or ",
+           "`test = control`.")
+    arm <- .role_to_arm(.role_from(test_sym, test), fit)
+    if (is.null(test.label)) test.label <- arm
     fit <- fit$arms[[arm]]
-  } else if (!is.null(arm)) {
-    warning("`arm` is ignored when `fit` is a dta_single object.",
+  } else if (!missing(test)) {
+    warning("`test` is ignored when `fit` is a dta_single object.",
             call. = FALSE)
   }
+  if (is.null(test.label)) test.label <- "test"
   stopifnot(inherits(fit, "dta_single"))
 
   counts <- .extract_counts(fit, NULL, "TP", "FP", "FN", "TN")
@@ -120,7 +123,7 @@ dta_funnel <- function(fit,
   )
 
   title_text <- sprintf("Deeks funnel of %s to predict %s in %s",
-                        test, outcome, population)
+                        test.label, outcome, population)
 
   # Contour-enhanced pseudo-confidence funnel.  At each y = 1/sqrt(ESS)
   # the half-width of the level-l region is z(l) * k * y, where k is the

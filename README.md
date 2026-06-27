@@ -135,7 +135,7 @@ ellipse).
 dta_forest(fit)
 
 # SROC + 95% confidence region + 95% prediction region + AUC
-dta_sroc(fit, test = "anti-CCP2",
+dta_sroc(fit, test.label = "anti-CCP2",
          outcome    = "rheumatoid arthritis",
          population = "adults")
 ```
@@ -166,9 +166,9 @@ library(easydta)
 # Paired wide frame: one row per study, .e = CT (index), .c = MRI
 data(schuetz)
 res <- dta_pairwise(schuetz,
-                    studlab      = "studlab",
-                    intervention = "CT",
-                    control      = "MRI")
+                    studlab            = "studlab",
+                    intervention.label = "CT",   # the .e arm
+                    control.label      = "MRI")  # the .c arm
 print(res)
 # Prints:
 #   - per-arm Se / Sp / DOR / LR+/- summary
@@ -179,7 +179,7 @@ print(res)
 # Variance structure (Cochrane Appendix 12): "equal" = model B (default),
 # "unequal" = model E (separate between-study variances per test):
 res_E <- dta_pairwise(schuetz, studlab = "studlab",
-                      intervention = "CT", control = "MRI",
+                      intervention.label = "CT", control.label = "MRI",
                       variance = "unequal")
 ```
 
@@ -193,20 +193,19 @@ res_cov <- dta_compare_tests(rbind(anti_ccp1, anti_ccp2), test_var = "test")
 
 `res` is a `dta_pairwise_result` with `$pair`, `$compare`, and
 `$arms` (a named list of per-arm `dta_single` fits), plus `$labels`
-identifying which level is intervention and which is control.
+mapping the `intervention` / `control` roles to the two arm names.
 
 ### Plots
 
 ```r
-# Per-arm forest -- pass the test name directly, no $arms[[]] gymnastics
-dta_forest(res, arm = "CT")
-dta_forest(res, arm = "MRI")
+# Per-arm forest -- pick the arm by role (intervention / control); the arm
+# name is looked up from the result. Bare word or string both work.
+dta_forest(res, test = intervention)
+dta_forest(res, test = control)
 
-# Side-by-side SROC + Cochrane-style differences table beneath
-#   .e = intervention, .c = control
+# Side-by-side SROC + Cochrane-style differences table beneath.
+# Arms default to the intervention / control roles, so no need to name them.
 dta_sroc_pair(res,
-              arm.e = "CT",  test.e = "CT",
-              arm.c = "MRI", test.c = "MRI",
               outcome    = "coronary artery disease",
               population = "adults with suspected CAD",
               auc_ic = TRUE)   # FALSE skips the AUC bootstrap (faster)
@@ -237,7 +236,7 @@ The vignette: [`examples/example_pairwise.Rmd`](examples/example_pairwise.Rmd).
 
 ```r
 long  <- dta_reshape_pairwise(schuetz, studlab = "studlab",
-                              intervention = "CT", control = "MRI")
+                              intervention = "CT", control = "MRI")  # low-level: still positional labels
 pair  <- dta_fit_pairwise(long, test_var = "test")  # models A/B/C/D
 cmp   <- dta_compare(pair)                          # LR tests + diffs
 ```
@@ -252,13 +251,13 @@ Cochrane-recommended publication-bias diagnostic for DTA reviews
 ```r
 # Single-arm
 dta_funnel(fit,
-           test       = "anti-CCP2",
+           test.label = "anti-CCP2",
            outcome    = "rheumatoid arthritis",
            population = "adults")
 
-# Per arm of a pairwise comparison
-dta_funnel(res, arm = "CT",
-           test = "CT",
+# Per arm of a pairwise comparison -- pick by role (test.label defaults
+# to the selected arm's name).
+dta_funnel(res, test = intervention,
            outcome    = "coronary artery disease",
            population = "adults with suspected CAD")
 ```

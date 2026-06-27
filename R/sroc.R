@@ -25,11 +25,11 @@
 #' SROC plot with 95% confidence and prediction regions + AUC
 #'
 #' @param fit         A `dta_single` object.
-#' @param test        Test name shown in the main title (default "test").
+#' @param test.label  Test name shown in the main title (default "test").
 #' @param outcome     Outcome name shown in the main title (default "outcome").
 #' @param population  Population name shown in the main title (default
 #'   "population"). The title is rendered as
-#'   `sROC of <test> to predict <outcome> in <population>`.
+#'   `sROC of <test.label> to predict <outcome> in <population>`.
 #' @param ci          Draw the 95% confidence region?  (default TRUE)
 #' @param pred        Draw the 95% prediction region?  (default TRUE; drawn
 #'   as a red dotted loop to distinguish it from the dashed CI region).
@@ -50,11 +50,11 @@
 #' @examples
 #' data(anti_ccp2)
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-#' dta_sroc(fit, test = "anti-CCP2",
+#' dta_sroc(fit, test.label = "anti-CCP2",
 #'          outcome = "rheumatoid arthritis", population = "adults")
 #' @export
 dta_sroc <- function(fit,
-                     test       = "test",
+                     test.label = "test",
                      outcome    = "outcome",
                      population = "population",
                      ci    = TRUE,
@@ -202,7 +202,7 @@ dta_sroc <- function(fit,
                    "Summary point")
 
   title_text <- sprintf("sROC of %s to predict %s in %s",
-                        test, outcome, population)
+                        test.label, outcome, population)
 
   # ---- Build plot ----------------------------------------------------------
   p <- ggplot2::ggplot()
@@ -352,12 +352,14 @@ dta_sroc <- function(fit,
 #'   are drawn independently, so the dAUC CI ignores within-study
 #'   correlation and is mildly conservative. No external packages needed.
 #'
-#' @param x         A `dta_pairwise_result` (output of
+#' @param x         A `dta_pairwise_result` (from `dta_pairwise()` /
 #'   `dta_compare_tests()`) *or* a named list of two `dta_single` fits.
 #' @param arm.e,arm.c Names of the intervention (`.e`) and control (`.c`)
-#'   arms in `x$arms` (or in `x` if a list was passed).
-#' @param test.e,test.c Test labels shown in each panel title and in the
-#'   differences table header.  Default to `arm.e` / `arm.c`.
+#'   arms in `x$arms`.  For a `dta_pairwise_result` they default to the
+#'   `intervention` / `control` arms recorded in the result, so you can omit
+#'   them; required when `x` is a plain named list.
+#' @param test.label.e,test.label.c Test labels shown in each panel title and
+#'   in the differences table header.  Default to `arm.e` / `arm.c`.
 #' @param outcome,population Shared title fields passed through to
 #'   `dta_sroc()`.
 #' @param table     Logical. Show the differences table below the panels?
@@ -384,14 +386,14 @@ dta_sroc <- function(fit,
 #' \donttest{
 #' data(schuetz)
 #' res <- dta_pairwise(schuetz, studlab = "studlab",
-#'                     intervention = "CT", control = "MRI")
-#' dta_sroc_pair(res, arm.e = "CT", arm.c = "MRI", auc_ic = FALSE)
+#'                     intervention.label = "CT", control.label = "MRI")
+#' dta_sroc_pair(res, auc_ic = FALSE)   # arms taken from the result
 #' }
 #' @export
 dta_sroc_pair <- function(x,
-                          arm.e, arm.c,
-                          test.e = arm.e,
-                          test.c = arm.c,
+                          arm.e = NULL, arm.c = NULL,
+                          test.label.e = NULL,
+                          test.label.c = NULL,
                           outcome    = "outcome",
                           population = "population",
                           table  = TRUE,
@@ -405,6 +407,16 @@ dta_sroc_pair <- function(x,
   } else x
   if (!is.list(arms) || is.null(names(arms)))
     stop("`x` must be a dta_pairwise_result or a named list of dta_single fits.")
+
+  # Default the arms to the intervention / control roles recorded on the
+  # result, so `dta_sroc_pair(res)` works without naming the arms.
+  if (is.null(arm.e)) arm.e <- x$labels$intervention
+  if (is.null(arm.c)) arm.c <- x$labels$control
+  if (is.null(arm.e) || is.null(arm.c))
+    stop("Provide `arm.e` and `arm.c` (no intervention/control roles found).")
+  if (is.null(test.label.e)) test.label.e <- arm.e
+  if (is.null(test.label.c)) test.label.c <- arm.c
+
   miss <- setdiff(c(arm.e, arm.c), names(arms))
   if (length(miss))
     stop("Arms not found in x$arms: ", paste(miss, collapse = ", "))
@@ -424,13 +436,13 @@ dta_sroc_pair <- function(x,
   panel_args$auc_ci <- isTRUE(auc_ic)
 
   p_e <- do.call(dta_sroc, c(list(fit_e,
-                                  test       = test.e,
+                                  test.label = test.label.e,
                                   outcome    = outcome,
                                   population = population,
                                   auc_override = auc_pair$arm.e),
                              panel_args))
   p_c <- do.call(dta_sroc, c(list(fit_c,
-                                  test       = test.c,
+                                  test.label = test.label.c,
                                   outcome    = outcome,
                                   population = population,
                                   auc_override = auc_pair$arm.c),
@@ -439,7 +451,7 @@ dta_sroc_pair <- function(x,
   panels <- gridExtra::arrangeGrob(p_e, p_c, ncol = ncol)
 
   diff_df <- .sroc_pair_diff_table(fit_e, fit_c, p_e, p_c,
-                                   test.e, test.c, arm.e, arm.c,
+                                   test.label.e, test.label.c, arm.e, arm.c,
                                    x, auc_pair, auc_ic, conf)
 
   if (isTRUE(table)) {
@@ -525,7 +537,7 @@ print.dta_sroc_pair <- function(x, ...) {
 }
 
 # Build the differences table shown below dta_sroc_pair() panels.
-# Columns: Measure, <test.e>, <test.c>, Diff (.e - .c), P-value.
+# Columns: Measure, <test.label.e>, <test.label.c>, Diff (.e - .c), P-value.
 # Sens/Spec p-values come from x$compare$lr_tests (Cochrane LR tests).
 # Sens/Spec diff CIs come from x$compare$differences (delta method),
 # sign-flipped if the comparison was estimated as (.c - .e) by the
@@ -533,7 +545,7 @@ print.dta_sroc_pair <- function(x, ...) {
 # AUC row uses auc_pair (per-arm AUC + CI and the bootstrap dAUC est/CI/p);
 # omitted when auc_ic = FALSE.
 .sroc_pair_diff_table <- function(fit_e, fit_c, p_e, p_c,
-                                  test.e, test.c, arm.e, arm.c,
+                                  test.label.e, test.label.c, arm.e, arm.c,
                                   x, auc_pair, auc_ic, conf) {
   # Result figures rounded to 2 decimals; p-values always to 3.
   fmt <- function(est, lo, hi) {
@@ -609,7 +621,7 @@ print.dta_sroc_pair <- function(x, ...) {
   }
 
   names(out) <- c("Measure",
-                  sprintf("Diff (%s - %s)", test.e, test.c),
+                  sprintf("Diff (%s - %s)", test.label.e, test.label.c),
                   "P-value")
   out
 }

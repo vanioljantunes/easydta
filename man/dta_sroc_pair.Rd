@@ -6,10 +6,10 @@
 \usage{
 dta_sroc_pair(
   x,
-  arm.e,
-  arm.c,
-  test.e = arm.e,
-  test.c = arm.c,
+  arm.e = NULL,
+  arm.c = NULL,
+  test.label.e = NULL,
+  test.label.c = NULL,
   outcome = "outcome",
   population = "population",
   table = TRUE,
@@ -21,14 +21,16 @@ dta_sroc_pair(
 )
 }
 \arguments{
-\item{x}{A \code{dta_pairwise_result} (output of
+\item{x}{A \code{dta_pairwise_result} (from \code{dta_pairwise()} /
 \code{dta_compare_tests()}) \emph{or} a named list of two \code{dta_single} fits.}
 
 \item{arm.e, arm.c}{Names of the intervention (\code{.e}) and control (\code{.c})
-arms in \code{x$arms} (or in \code{x} if a list was passed).}
+arms in \code{x$arms}.  For a \code{dta_pairwise_result} they default to the
+\code{intervention} / \code{control} arms recorded in the result, so you can omit
+them; required when \code{x} is a plain named list.}
 
-\item{test.e, test.c}{Test labels shown in each panel title and in the
-differences table header.  Default to \code{arm.e} / \code{arm.c}.}
+\item{test.label.e, test.label.c}{Test labels shown in each panel title and
+in the differences table header.  Default to \code{arm.e} / \code{arm.c}.}
 
 \item{outcome, population}{Shared title fields passed through to
 \code{dta_sroc()}.}
@@ -88,7 +90,7 @@ correlation and is mildly conservative. No external packages needed.
 \donttest{
 data(schuetz)
 res <- dta_pairwise(schuetz, studlab = "studlab",
-                    intervention = "CT", control = "MRI")
-dta_sroc_pair(res, arm.e = "CT", arm.c = "MRI", auc_ic = FALSE)
+                    intervention.label = "CT", control.label = "MRI")
+dta_sroc_pair(res, auc_ic = FALSE)   # arms taken from the result
 }
 }
