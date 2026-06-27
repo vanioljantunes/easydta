@@ -25,6 +25,7 @@ Imports:
     ggplot2,
     grid,
     gridExtra,
+    gtable,
     MASS,
     metafor,
     pracma,
@@ -33,6 +34,8 @@ Imports:
 Suggests:
     devtools,
     knitr,
+    readxl,
     dmetatools
 Additional_repositories: https://github.com/nomahi/dmetatools
-RoxygenNote: 7.3.3
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.0.0

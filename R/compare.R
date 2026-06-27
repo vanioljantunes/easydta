@@ -13,6 +13,12 @@
 #' @param conf    Confidence level for difference CIs (default 0.95).
 #'
 #' @return An S3 `dta_compare` object.
+#' @examples
+#' data(schuetz)
+#' long <- dta_reshape_pairwise(schuetz, studlab = "studlab",
+#'                              intervention = "CT", control = "MRI")
+#' pair <- dta_fit_pairwise(long, test_var = "test")
+#' dta_compare(pair)
 #' @export
 dta_compare <- function(object, conf = 0.95) {
   stopifnot(inherits(object, "dta_pairwise"))

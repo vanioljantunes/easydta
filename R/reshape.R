@@ -29,6 +29,10 @@
 #'
 #' @return A long-format data frame with columns: studlab, sens, spec,
 #'   true, n, plus any `extra` columns.
+#' @examples
+#' data(anti_ccp2)
+#' long <- dta_reshape(anti_ccp2)
+#' head(long)
 #' @export
 dta_reshape <- function(data,
                         tp      = "TP",
@@ -98,6 +102,11 @@ dta_reshape <- function(data,
 #'
 #' @return Long-format data frame with columns: studlab, <test_var>,
 #'   sens, spec, true, n.
+#' @examples
+#' data(schuetz)
+#' long <- dta_reshape_pairwise(schuetz, studlab = "studlab",
+#'                              intervention = "CT", control = "MRI")
+#' head(long)
 #' @export
 dta_reshape_pairwise <- function(data,
                                  author       = "author",

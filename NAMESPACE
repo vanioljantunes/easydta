@@ -22,6 +22,8 @@ S3method(print, dta_pairwise_result)
 S3method(print, dta_compare)
 S3method(summary, dta_single)
 S3method(summary, dta_pairwise)
+S3method(dta_summary, dta_single)
+S3method(dta_summary, dta_pairwise)
 
 importFrom(lme4, glmer, VarCorr, fixef)
 importFrom(msm, deltamethod)

@@ -37,6 +37,10 @@
 #'   `I2_sens`, `I2_spec`, `I2_biv` (Zhou-Dendukuri bivariate I^2), and
 #'   `pred_region` (logit-scale ellipse). `print(fit)` shows it.
 #'
+#' @examples
+#' data(anti_ccp2)
+#' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
+#' print(fit)
 #' @export
 dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, conf = 0.95, ...) {
   if (wide) long <- dta_reshape(long, ...)
@@ -72,7 +76,16 @@ dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, conf = 0.95, ...) {
 #'   C. spec-varies only:    0 + sens + spA + spB
 #'   D. sens-varies only:    0 + seA + seB + spec
 #'
-#' with equal variances: (0 + sens + spec | study_id) in every model.
+#' The random-effects structure is controlled by `variance`:
+#'   * `"equal"`   (default, Cochrane model B): a single shared block
+#'     `(0 + sens + spec | study_id)` in every model.
+#'   * `"unequal"` (Cochrane model E): two per-test blocks
+#'     `(0 + seA + spA | study_id) + (0 + seB + spB | study_id)`, allowing
+#'     each test its own between-study variances and covariance.
+#'
+#' The chosen structure is applied to all four nested models so the
+#' likelihood-ratio ladder stays nested.
+#'
 #' The user-supplied `test_var` is coerced to a two-level factor; the first
 #' level (alphabetical) becomes "A", the second "B".
 #'
@@ -81,18 +94,28 @@ dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, conf = 0.95, ...) {
 #'   `wide = TRUE`.
 #' @param test_var  Name (string) of the test-type column -- must have
 #'   exactly two distinct non-NA values.
+#' @param variance  Random-effects structure: `"equal"` (default, model B,
+#'   shared between-study variances) or `"unequal"` (model E, separate
+#'   per-test variances).
 #' @param nAGQ      Integer; Laplace by default.
 #' @param wide      Logical. If TRUE, reshape first.
 #' @param ...       Forwarded to `dta_reshape()` when `wide = TRUE`.
 #'
 #' @return An S3 object of class `"dta_pairwise"`.
 #'
+#' @examples
+#' data(schuetz)
+#' long <- dta_reshape_pairwise(schuetz, studlab = "studlab",
+#'                              intervention = "CT", control = "MRI")
+#' pair <- dta_fit_pairwise(long, test_var = "test")
 #' @export
 dta_fit_pairwise <- function(long,
                              test_var,
+                             variance = c("equal", "unequal"),
                              nAGQ = 1L,
                              wide = FALSE,
                              ...) {
+  variance <- match.arg(variance)
   if (wide) long <- dta_reshape(long, extra = test_var, ...)
   .check_long(long)
   if (!test_var %in% names(long)) {
@@ -111,14 +134,23 @@ dta_fit_pairwise <- function(long,
   long$spA <- long$spec * as.integer(tv == levs[1])
   long$spB <- long$spec * as.integer(tv == levs[2])
 
-  f_null <- cbind(true, n - true) ~ 0 + sens + spec +
-    (0 + sens + spec | studlab)
-  f_full <- cbind(true, n - true) ~ 0 + seA + seB + spA + spB +
-    (0 + sens + spec | studlab)
-  f_spOnly <- cbind(true, n - true) ~ 0 + sens + spA + spB +
-    (0 + sens + spec | studlab)
-  f_seOnly <- cbind(true, n - true) ~ 0 + seA + seB + spec +
-    (0 + sens + spec | studlab)
+  # Random-effects term: shared (model B) or split per test (model E).
+  re_term <- if (variance == "equal") {
+    "(0 + sens + spec | studlab)"
+  } else {
+    "(0 + seA + spA | studlab) + (0 + seB + spB | studlab)"
+  }
+
+  mk_formula <- function(fixed) {
+    stats::as.formula(
+      paste("cbind(true, n - true) ~", fixed, "+", re_term)
+    )
+  }
+
+  f_null   <- mk_formula("0 + sens + spec")
+  f_full   <- mk_formula("0 + seA + seB + spA + spB")
+  f_spOnly <- mk_formula("0 + sens + spA + spB")
+  f_seOnly <- mk_formula("0 + seA + seB + spec")
 
   mk <- function(formula) {
     lme4::glmer(formula = formula, data = long,
@@ -134,26 +166,33 @@ dta_fit_pairwise <- function(long,
     models     = list(A = A, B = B, C = C, D = D),
     long       = long,
     test_var   = test_var,
+    variance   = variance,
     levels     = levs,
-    call_args  = list(nAGQ = nAGQ),
+    call_args  = list(nAGQ = nAGQ, variance = variance),
     vcov_full  = stats::vcov(B),
-    Psi_full   = .random_vcv(B)
+    Psi_full   = .random_vcv(B, levels = levs)
   )
   class(out) <- "dta_pairwise"
   out
 }
 
-#' One-call pairwise DTA meta-analysis
+#' One-call pairwise DTA meta-analysis (paired wide design)
 #'
-#' Convenience wrapper that takes the wide paired-design data frame and
-#' column-name arguments once, then runs the full pipeline:
-#'   1. `dta_reshape_pairwise()` -> long format
+#' Takes a single wide data frame -- one row per study, with `.e`
+#' (intervention / index) and `.c` (control / comparator) suffixed count
+#' columns -- as used for paired head-to-head designs where each study
+#' evaluated BOTH tests (e.g. the `schuetz` CT vs MRI data).  Runs the full
+#' pipeline:
+#'   1. `dta_reshape_pairwise()` -> long format (two arms stacked, shared
+#'      `studlab` so the within-study pairing is captured by the random effect)
 #'   2. `dta_fit_pairwise()`     -> nested LR-test models
 #'   3. `dta_compare()`          -> LR tests + Se/Sp differences
 #'   4. `dta_fit_single()` per arm, keyed by the `intervention` / `control`
 #'      labels, ready for `dta_forest()` and `dta_sroc()`.
 #'
 #' @inheritParams dta_reshape_pairwise
+#' @param variance  Random-effects structure for the comparison: `"equal"`
+#'   (default, model B) or `"unequal"` (model E). See [dta_fit_pairwise()].
 #' @param nAGQ  Integer; Laplace by default (passed to both fitters).
 #' @param conf  Confidence level used by per-arm heterogeneity summaries
 #'   and by `dta_compare()` (default 0.95).
@@ -163,6 +202,11 @@ dta_fit_pairwise <- function(long,
 #'   result), `arms` (named list of two `dta_single` fits), and `labels`
 #'   (the intervention / control labels).
 #'
+#' @examples
+#' data(schuetz)
+#' res <- dta_pairwise(schuetz, studlab = "studlab",
+#'                     intervention = "CT", control = "MRI")
+#' print(res)
 #' @export
 dta_pairwise <- function(data,
                          author       = "author",
@@ -179,8 +223,10 @@ dta_pairwise <- function(data,
                          tn.c         = "TN.c",
                          studlab      = NULL,
                          test_var     = "test",
+                         variance     = c("equal", "unequal"),
                          nAGQ         = 1L,
                          conf         = 0.95) {
+  variance <- match.arg(variance)
   long <- dta_reshape_pairwise(
     data,
     author       = author,
@@ -193,7 +239,8 @@ dta_pairwise <- function(data,
     test_var     = test_var
   )
 
-  pair <- dta_fit_pairwise(long, test_var = test_var, nAGQ = nAGQ)
+  pair <- dta_fit_pairwise(long, test_var = test_var,
+                           variance = variance, nAGQ = nAGQ)
   cmp  <- dta_compare(pair, conf = conf)
 
   arm_rows <- function(label) long[long[[test_var]] == label, , drop = FALSE]
@@ -232,19 +279,28 @@ dta_pairwise <- function(data,
 #' @param test_var  Name (string) of the test-type column.
 #' @param studlab   Column name of the study label (default `"studlab"`).
 #' @param tp,fp,fn,tn  Column names for the 2x2 counts.
+#' @param variance  Random-effects structure for the comparison: `"equal"`
+#'   (default, model B) or `"unequal"` (model E). See [dta_fit_pairwise()].
 #' @param nAGQ      Integer; Laplace by default.
 #' @param conf      Confidence level (default 0.95).
 #'
 #' @return An S3 object of class `"dta_pairwise_result"` (same shape as
 #'   the return of `dta_pairwise()`).
 #'
+#' @examples
+#' data(anti_ccp1); data(anti_ccp2)
+#' d <- rbind(anti_ccp1, anti_ccp2)          # between-study covariate design
+#' res <- dta_compare_tests(d, test_var = "test")
+#' print(res)
 #' @export
 dta_compare_tests <- function(data,
                               test_var,
                               studlab = "studlab",
                               tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+                              variance = c("equal", "unequal"),
                               nAGQ = 1L,
                               conf = 0.95) {
+  variance <- match.arg(variance)
   stopifnot(is.data.frame(data))
   if (missing(test_var) || is.null(test_var)) {
     stop("`test_var` is required (the column carrying the test type).")
@@ -258,7 +314,8 @@ dta_compare_tests <- function(data,
                       studlab = studlab,
                       extra   = test_var)
 
-  pair <- dta_fit_pairwise(long, test_var = test_var, nAGQ = nAGQ)
+  pair <- dta_fit_pairwise(long, test_var = test_var,
+                           variance = variance, nAGQ = nAGQ)
   cmp  <- dta_compare(pair, conf = conf)
 
   levs <- pair$levels

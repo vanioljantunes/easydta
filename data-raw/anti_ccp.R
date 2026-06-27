@@ -1,15 +1,19 @@
-# Build data/anti_ccp.rda from inst/extdata/anti_ccp.csv
+# Build data/anti_ccp1.rda + data/anti_ccp2.rda from
+# inst/extdata/anti_ccp.xlsx (one sheet per arm: "CCP1", "CCP2").
+# Each is a single-arm subset; the `test` column is kept (constant) so the
+# two can be row-bound into a covariate comparison.
 # Run from package root: source("data-raw/anti_ccp.R")
 
-anti_ccp <- utils::read.csv(
-  system.file("extdata", "anti_ccp.csv", package = "easydta"),
-  stringsAsFactors = FALSE
-)
-
-if (nrow(anti_ccp) == 0L) {
-  anti_ccp <- utils::read.csv("inst/extdata/anti_ccp.csv", stringsAsFactors = FALSE)
+path <- system.file("extdata", "anti_ccp.xlsx", package = "easydta")
+if (!nzchar(path)) {
+  path <- "inst/extdata/anti_ccp.xlsx"
 }
 
-anti_ccp$generation <- factor(anti_ccp$generation, levels = c("CCP1", "CCP2"))
+lev <- c("CCP1", "CCP2")
+anti_ccp1 <- as.data.frame(readxl::read_excel(path, sheet = "CCP1"))
+anti_ccp2 <- as.data.frame(readxl::read_excel(path, sheet = "CCP2"))
+anti_ccp1$test <- factor(anti_ccp1$test, levels = lev)
+anti_ccp2$test <- factor(anti_ccp2$test, levels = lev)
 
-usethis::use_data(anti_ccp, overwrite = TRUE)
+usethis::use_data(anti_ccp1, overwrite = TRUE)
+usethis::use_data(anti_ccp2, overwrite = TRUE)

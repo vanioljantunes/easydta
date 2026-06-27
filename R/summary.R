@@ -10,6 +10,11 @@
 #' @param object A `dta_single` or `dta_pairwise` object.
 #' @param conf  Confidence level (default 0.95).
 #' @param ...   Ignored.
+#' @return A data frame of Se/Sp (and derived measures) with CIs.
+#' @examples
+#' data(anti_ccp2)
+#' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
+#' dta_summary(fit)
 #' @export
 dta_summary <- function(object, conf = 0.95, ...) {
   UseMethod("dta_summary")
@@ -84,6 +89,10 @@ dta_summary.dta_pairwise <- function(object, conf = 0.95, ...) {
 #' @param conf Confidence level (default 0.95).
 #'
 #' @return Data frame with one row per measure.
+#' @examples
+#' data(anti_ccp2)
+#' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
+#' dta_derived(fit)
 #' @export
 dta_derived <- function(fit, conf = 0.95) {
   stopifnot(inherits(fit, "dta_single"))
@@ -149,6 +158,12 @@ print.dta_pairwise <- function(x, digits = 3, ...) {
   cat("<dta_pairwise>  Bivariate meta-regression (Cochrane Appendix 12)\n")
   cat("  Test variable: ", x$test_var, "\n", sep = "")
   cat("  Levels:        ", paste(x$levels, collapse = " vs "), "\n", sep = "")
+  var_lab <- if (identical(x$variance, "unequal")) {
+    "unequal (model E)"
+  } else {
+    "equal (model B)"
+  }
+  cat("  Variance:      ", var_lab, "\n", sep = "")
   cat("  Studies: ", length(unique(x$long$studlab)),
       "   Observations: ", nrow(x$long), "\n\n", sep = "")
   s <- dta_summary(x)

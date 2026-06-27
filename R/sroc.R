@@ -34,7 +34,7 @@
 #' @param pred        Draw the 95% prediction region?  (default TRUE; drawn
 #'   as a red dotted loop to distinguish it from the dashed CI region).
 #' @param labels      Logical. Print study labels next to each triangle?
-#'   (default TRUE).  Labels are drawn on top of the panel and are allowed
+#'   (default FALSE).  Labels are drawn on top of the panel and are allowed
 #'   to overlap each other and the sROC curve -- they never reposition the
 #'   underlying study points.
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
@@ -48,6 +48,11 @@
 #'
 #' @return A ggplot object; if `auc = TRUE`, `attr(x, "AUC")` holds the AUC
 #'   point estimate and `attr(x, "AUC_CI")` holds the CI.
+#' @examples
+#' data(anti_ccp2)
+#' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
+#' dta_sroc(fit, test = "anti-CCP2",
+#'          outcome = "rheumatoid arthritis", population = "adults")
 #' @export
 dta_sroc <- function(fit,
                      test       = "test",
@@ -55,7 +60,7 @@ dta_sroc <- function(fit,
                      population = "population",
                      ci    = TRUE,
                      pred  = TRUE,
-                     labels = TRUE,
+                     labels = FALSE,
                      auc   = TRUE,
                      auc_ci = TRUE,
                      auc_method = c("boot", "trapz"),
@@ -377,6 +382,13 @@ dta_sroc <- function(fit,
 #'   itself via `grid::grid.draw()` when sent to a graphics device.
 #'   `attr(., "panels")` holds the underlying ggplot list and
 #'   `attr(., "diff_table")` holds the rendered data.frame.
+#' @examples
+#' \donttest{
+#' data(schuetz)
+#' res <- dta_pairwise(schuetz, studlab = "studlab",
+#'                     intervention = "CT", control = "MRI")
+#' dta_sroc_pair(res, arm.e = "CT", arm.c = "MRI", auc_ic = FALSE)
+#' }
 #' @export
 dta_sroc_pair <- function(x,
                           arm.e, arm.c,
@@ -440,6 +452,15 @@ dta_sroc_pair <- function(x,
         core    = list(fg_params = list(cex = 0.85)),
         colhead = list(fg_params = list(cex = 0.85, fontface = "bold"))
       )
+    )
+    # Wrap the differences table in a single bordered container box that
+    # hugs the table extent (header + body), so it reads as one panel.
+    tbl_grob <- gtable::gtable_add_grob(
+      tbl_grob,
+      grobs = grid::rectGrob(gp = grid::gpar(fill = NA, col = "black",
+                                             lwd = 1.2)),
+      t = 1, b = nrow(tbl_grob), l = 1, r = ncol(tbl_grob),
+      name = "container-border"
     )
     g <- gridExtra::arrangeGrob(panels, tbl_grob,
                                 nrow = 2, heights = c(5, 1))
@@ -507,10 +528,11 @@ dta_sroc_pair <- function(x,
 .sroc_pair_diff_table <- function(fit_e, fit_c, p_e, p_c,
                                   test.e, test.c, arm.e, arm.c,
                                   x, auc_pair, auc_ic, conf) {
+  # Result figures rounded to 2 decimals; p-values always to 3.
   fmt <- function(est, lo, hi) {
     if (is.na(est)) return("n/a")
-    if (is.na(lo) || is.na(hi)) return(sprintf("%.3f", est))
-    sprintf("%.3f (%.3f, %.3f)", est, lo, hi)
+    if (is.na(lo) || is.na(hi)) return(sprintf("%.2f", est))
+    sprintf("%.2f (%.2f, %.2f)", est, lo, hi)
   }
   fmt_p <- function(p) {
     if (is.null(p) || is.na(p)) return("n/a")
@@ -551,10 +573,6 @@ dta_sroc_pair <- function(x,
 
   out <- data.frame(
     Measure = c("Sensitivity", "Specificity"),
-    e = c(fmt(re$sens["estimate"], re$sens["lci"], re$sens["uci"]),
-          fmt(re$spec["estimate"], re$spec["lci"], re$spec["uci"])),
-    c = c(fmt(rc$sens["estimate"], rc$sens["lci"], rc$sens["uci"]),
-          fmt(rc$spec["estimate"], rc$spec["lci"], rc$spec["uci"])),
     Diff = c(fmt(diff_sens$est, diff_sens$lo, diff_sens$hi),
              fmt(diff_spec$est, diff_spec$lo, diff_spec$hi)),
     P = c(fmt_p(p_sens), fmt_p(p_spec)),
@@ -577,19 +595,13 @@ dta_sroc_pair <- function(x,
 
     out <- rbind(out, data.frame(
       Measure = "AUC",
-      e = fmt(auc_e,
-              if (is.null(auc_e_ci)) NA_real_ else auc_e_ci[1],
-              if (is.null(auc_e_ci)) NA_real_ else auc_e_ci[2]),
-      c = fmt(auc_c,
-              if (is.null(auc_c_ci)) NA_real_ else auc_c_ci[1],
-              if (is.null(auc_c_ci)) NA_real_ else auc_c_ci[2]),
       Diff = fmt(d_est, d_lo, d_hi),
       P = fmt_p(p_auc),
       stringsAsFactors = FALSE
     ))
   }
 
-  names(out) <- c("Measure", test.e, test.c,
+  names(out) <- c("Measure",
                   sprintf("Diff (%s - %s)", test.e, test.c),
                   "P-value")
   out
