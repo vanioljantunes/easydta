@@ -4,17 +4,20 @@
 \alias{dta_fit_single}
 \title{Fit the bivariate binomial GLMM for a single diagnostic test}
 \usage{
-dta_fit_single(long, nAGQ = 1L, wide = FALSE, conf = 0.95, ...)
+dta_fit_single(long, nAGQ = 1L, wide = NA, conf = 0.95, ...)
 }
 \arguments{
-\item{long}{Long-format data frame produced by \code{dta_reshape()}, OR a
-wide data frame -- in which case \code{wide = TRUE} will call \code{dta_reshape()}.}
+\item{long}{Data frame: either long format (from \code{dta_reshape()}, with
+\code{sens}/\code{spec}/\code{true}/\code{n} columns) OR a wide one-row-per-study 2x2 table
+(with \code{TP}/\code{FP}/\code{FN}/\code{TN} columns). The format is auto-detected; pass
+\code{wide} explicitly to override.}
 
 \item{nAGQ}{Integer. 1 = Laplace (default, fastest, matches the Handbook
 baseline). Increase (e.g. 5, 7) for adaptive Gauss-Hermite quadrature.}
 
-\item{wide}{Logical. If TRUE, \code{long} is actually wide and will be
-reshaped first.}
+\item{wide}{Logical, or \code{NA} (default) to auto-detect: a frame lacking the
+long-format columns \code{sens}/\code{spec}/\code{true}/\code{n} is treated as wide and
+reshaped via \code{dta_reshape()} first.}
 
 \item{conf}{Confidence level used for the prediction-region ellipse
 computed as part of the heterogeneity summary (default 0.95).}
