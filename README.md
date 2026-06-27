@@ -11,9 +11,9 @@ accuracy (DTA) meta-analysis. It implements the bivariate binomial
 GLMM workflow recommended by the
 [Cochrane Handbook for Systematic Reviews of Diagnostic Test Accuracy
 v2.0 (Chapter 10, Supplementary Material 1, Takwoingi et al. 2023)](https://training.cochrane.org/handbook-diagnostic-test-accuracy/current),
-exposes it through a small set of `dta_*()` functions, and replaces
-older `mada`-style normal-approximation methods with the ones Cochrane
-explicitly endorses.
+exposes it through a small set of `dta_*()` functions, using the methods
+Cochrane explicitly endorses (no external diagnostic-meta-analysis
+packages required).
 
 **What you get:**
 
@@ -29,9 +29,9 @@ explicitly endorses.
   test-comparison studies (overall test effect, Sens-differs, Spec-differs)
   and delta-method 95% CIs for absolute and relative Se/Sp differences.
 - **Plots out of the box** — coupled sens/spec forest, SROC with
-  confidence + prediction regions and bootstrap AUC (via
-  `dmetatools::AUC_boot` or `AUC_comparison`), and a Deeks funnel with
-  contour-enhanced pseudo-CI bands and the Deeks asymmetry test.
+  confidence + prediction regions and trapezoidal AUC (with a parametric
+  MVN-bootstrap CI), and a Deeks funnel with contour-enhanced pseudo-CI
+  bands and the Deeks asymmetry test.
 - **Sensible defaults; few arguments** — every plot function takes
   `test`/`outcome`/`population` for a Cochrane-style title, and every
   composite plot returns a single self-drawing `gtable` (it renders when
@@ -52,20 +52,9 @@ remotes::install_github("vanioljantunes/easydta")
 `lme4`, `msm`, `lmtest`, `ggplot2`, `grid`, `gridExtra`, `MASS`,
 `metafor`, `pracma`.
 
-**Optional but recommended** — installs paired-bootstrap AUC inference
-for `dta_sroc_pair()` (joint AUC + dAUC + p-value via
-`dmetatools::AUC_comparison`) and per-test bootstrap CIs for
-`dta_sroc(auc_method = "boot")`:
-
-```r
-install.packages("mada")                       # dmetatools runtime dep
-remotes::install_github("nomahi/dmetatools")
-```
-
-When `dmetatools` is unavailable, AUC machinery degrades gracefully:
-`dta_sroc()` falls back to trapezoidal integration with a parametric
-MVN bootstrap CI on `(lsens, lspec)`, and `dta_sroc_pair(auc_ic = TRUE)`
-emits a single warning then drops the dAUC p-value column.
+No extra repositories or non-CRAN packages are needed. AUC is the
+trapezoidal integral of the SROC curve; its CI (and the pairwise dAUC
+CI + p-value) comes from a built-in parametric MVN bootstrap.
 
 ---
 
@@ -231,15 +220,16 @@ The differences table reports per-arm Sens, Spec and AUC (each with
 | Sensitivity | 0.945 (0.897, 0.971) | 0.861 (0.794, 0.909) | 0.084 (0.017, 0.150) | 0.012 |
 | Specificity | 0.861 (0.744, 0.929) | 0.708 (0.546, 0.830) | 0.153 (0.047, 0.259) | 0.001 |
 
-*(AUC row appears when `auc_ic = TRUE`; it requires the
-`dmetatools::AUC_comparison()` bootstrap.)*
+*(AUC row appears when `auc_ic = TRUE`.)*
 
 - Sens / Spec p-values are LR tests (Cochrane Appendix 12, rows 2-3 of
   `res$compare$lr_tests`).
 - Sens / Spec diff CIs are delta-method on the joint pairwise model.
-- AUC + dAUC + p-value come from a single `dmetatools::AUC_comparison()`
-  call (Noma & Matsushima 2020), so the table and per-panel summary
-  boxes always show the same numbers.
+- AUC + dAUC + p-value come from the parametric MVN bootstrap: per-arm AUC
+  draws (trapezoidal integral of each resampled SROC) are differenced to
+  give the dAUC CI and a two-sided p-value. Arms are drawn independently,
+  so the dAUC CI is mildly conservative. The per-panel AUC boxes reuse the
+  same numbers.
 
 The vignette: [`examples/example_pairwise.Rmd`](examples/example_pairwise.Rmd).
 
@@ -320,8 +310,6 @@ with a zero cell — matches `metafor::escalc(to = "only0")`.
 - Noma H, Matsushima Y. *Confidence interval for the AUC of SROC curve
   and some related methods using bootstrap for meta-analysis of
   diagnostic accuracy studies.* arXiv:2004.04339 (2020).
-- Noma H *et al.* [`dmetatools`](https://github.com/nomahi/dmetatools) —
-  bootstrap AUC and dAUC tools used by `dta_sroc()` / `dta_sroc_pair()`.
 
 ## License
 
