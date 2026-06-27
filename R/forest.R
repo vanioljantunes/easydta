@@ -177,15 +177,12 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2,
     )
   }
 
-  # I^2 split across three panels: biv under summary label, sens under sens
-  # diamond, spec under spec diamond.
+  # Single bivariate I^2 annotation, shown under the summary label only.
   het <- fit$heterogeneity
   if (!is.null(het)) {
-    i2_biv_text  <- sprintf("I²(biv) = %.1f%%",  100 * het$I2_biv)
-    i2_sens_text <- sprintf("I²(sens) = %.1f%%", 100 * het$I2_sens)
-    i2_spec_text <- sprintf("I²(spec) = %.1f%%", 100 * het$I2_spec)
+    i2_biv_text <- sprintf("I² = %.1f%%", 100 * het$I2_biv)
   } else {
-    i2_biv_text <- i2_sens_text <- i2_spec_text <- "I²: NA"
+    i2_biv_text <- "I²: NA"
   }
   i2_size <- 3.0  # standard cell font, own row (matches cell_size)
 
@@ -271,7 +268,9 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2,
     base_theme + invisible_axis_theme
 
   # ----- Sens / Spec value text panels --------------------------------------
-  text_value_panel <- function(df, col_title, i2_label) {
+  # No per-panel I^2 annotation; the single bivariate I^2 lives under the
+  # summary label in the label panel.
+  text_value_panel <- function(df, col_title) {
     ggplot2::ggplot(df, ggplot2::aes(y = ypos)) +
       zebra_layer() +
       ggplot2::geom_text(ggplot2::aes(label = txt, fontface = face),
@@ -279,16 +278,13 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2,
       ggplot2::annotate("text", x = val_x, y = header_y,
                         label = col_title, hjust = val_hjust,
                         fontface = "bold", size = hdr_size) +
-      ggplot2::annotate("text", x = val_x, y = i2_y,
-                        label = i2_label, hjust = val_hjust,
-                        size = i2_size) +
       ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
       ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
       base_theme + invisible_axis_theme
   }
 
-  p_se_txt <- text_value_panel(se_df, "Sens (95% CI)", i2_sens_text)
-  p_sp_txt <- text_value_panel(sp_df, "Spec (95% CI)", i2_spec_text)
+  p_se_txt <- text_value_panel(se_df, "Sens (95% CI)")
+  p_sp_txt <- text_value_panel(sp_df, "Spec (95% CI)")
 
   # ----- Sensitivity / Specificity CI panels --------------------------------
   # No box (panel.border) and no title above or below; the x-axis scale
@@ -372,8 +368,10 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2,
   g <- gridExtra::arrangeGrob(grobs = grobs, ncol = 1, heights = heights_vec)
 
   grid::grid.newpage()
+  # Centre the fixed-height composite in the device, both axes.
   grid::pushViewport(grid::viewport(
-    y = grid::unit(1, "npc"), just = "top",
+    x = grid::unit(0.5, "npc"), y = grid::unit(0.5, "npc"),
+    just = "centre",
     height = total_h, width = grid::unit(1, "npc")
   ))
   grid::grid.draw(g)
