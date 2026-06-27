@@ -42,7 +42,7 @@ per-panel summary boxes show just the AUC point estimate (no CI),
 and the differences table omits the AUC row entirely -- skipping
 the bootstrap is much faster and useful for previewing.}
 
-\item{B}{Bootstrap replicates for \code{AUC_comparison()} (default
+\item{B}{MVN-bootstrap replicates for the AUC / dAUC CIs (default
 2000); ignored when \code{auc_ic = FALSE}.}
 
 \item{conf}{Confidence level (default 0.95).}
@@ -50,8 +50,8 @@ the bootstrap is much faster and useful for previewing.}
 \item{ncol}{Number of columns for the SROC panel row (default 2).}
 
 \item{...}{Extra arguments forwarded to both \code{dta_sroc()} calls
-(e.g. \code{auc_method}, \code{labels}, \code{pred}).  \code{auc_ci} is set
-automatically from \code{auc_ic} and should not be overridden.}
+(e.g. \code{labels}, \code{pred}).  \code{auc_ci} is set automatically from \code{auc_ic}
+and should not be overridden.}
 }
 \value{
 A \code{gtable} of class \code{"dta_sroc_pair"}; its \code{print()} method draws
@@ -75,12 +75,13 @@ Statistical inference follows the Cochrane Handbook for DTA Reviews
 bivariate model with the relevant fixed effect constrained equal
 between arms (rows 2 and 3 of \code{x$compare$lr_tests}); the absolute
 difference (with delta-method CI) comes from \code{x$compare$differences}.
-\item AUC inference (when \code{auc_ic = TRUE}) uses
-\code{dmetatools::AUC_comparison()} (Noma & Matsushima 2020): a
-parametric bootstrap that jointly returns each arm's AUC + 95\% CI,
-the difference dAUC + 95\% CI, and a p-value for \code{dAUC = 0}.  When
-\code{dmetatools} is not installed, AUCs are taken from \code{dta_sroc()} and
-the p-value is reported as \code{n/a}.
+\item AUC inference (when \code{auc_ic = TRUE}) is a parametric MVN bootstrap:
+each arm's AUC + 95\% CI come from resampling \verb{(lsens, lspec)} and
+integrating each SROC (the \code{dta_sroc()} method). The difference
+\code{dAUC = AUC.e - AUC.c}, its 95\% CI, and the p-value for \code{dAUC = 0}
+are formed by differencing the two arms' bootstrap draws. The arms
+are drawn independently, so the dAUC CI ignores within-study
+correlation and is mildly conservative. No external packages needed.
 }
 }
 \examples{

@@ -14,7 +14,6 @@ dta_sroc(
   labels = FALSE,
   auc = TRUE,
   auc_ci = TRUE,
-  auc_method = c("boot", "trapz"),
   B = 2000,
   conf = 0.95,
   n_grid = 200,
@@ -44,12 +43,11 @@ underlying study points.}
 
 \item{auc}{Compute AUC and attach as attribute?  (default TRUE)}
 
-\item{auc_method}{"boot" (default; uses \code{dmetatools::AUC_boot}) or
-"trapz" (numerical integration of the SROC curve with \code{pracma::trapz};
-automatically used as a fallback if \code{dmetatools} is not installed).
-In both cases an AUC CI is returned.}
+\item{auc_ci}{Compute a CI for the AUC (parametric MVN bootstrap)?
+(default TRUE). If FALSE only the trapezoidal point estimate is returned.}
 
-\item{B}{Number of bootstrap replicates (default 2000).}
+\item{B}{Number of MVN-bootstrap replicates for the AUC CI
+(default 2000).}
 
 \item{conf}{Confidence level (default 0.95).}
 

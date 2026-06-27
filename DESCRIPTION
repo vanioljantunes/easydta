@@ -8,7 +8,8 @@ Description: Pedagogical, lme4-based workflow for bivariate binomial GLMM
     meta-analysis of diagnostic test accuracy studies, following the
     Cochrane Handbook for Systematic Reviews of Diagnostic Test Accuracy
     (v2.0, 2023) Chapter 10 Supplementary Material 1 (Takwoingi et al.).
-    Replaces the 'mada' package with methods Cochrane explicitly endorses.
+    Implements the methods Cochrane explicitly endorses, with no external
+    diagnostic-meta-analysis dependencies.
     Includes single-test fitting, pairwise meta-regression with likelihood
     ratio tests, delta-method CIs for DOR/LR+/LR-, the Zhou & Dendukuri
     (2014) bivariate I-squared, coupled forest plots, and SROC plots with
@@ -34,8 +35,6 @@ Imports:
 Suggests:
     devtools,
     knitr,
-    readxl,
-    dmetatools
-Additional_repositories: https://github.com/nomahi/dmetatools
+    readxl
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.0.0

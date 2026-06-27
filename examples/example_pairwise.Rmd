@@ -56,11 +56,12 @@ dev.off()
 # absolute differences (.e - .c), and p-values:
 #   * Sens/Spec p-values come from the LR tests (Cochrane Appendix 12,
 #     Table A12.1 rows 2-3 in `res$compare$lr_tests`).
-#   * AUC inference uses dmetatools::AUC_comparison() (Noma & Matsushima
-#     2020) -- joint parametric bootstrap that returns each arm's AUC,
-#     dAUC, their CIs, and the p-value for dAUC = 0.  Set
-#     `auc_ic = FALSE` to skip the bootstrap (faster preview; AUC row is
-#     omitted and the in-panel AUC summary loses its CI).
+#   * AUC inference (auc_ic = TRUE) is a parametric MVN bootstrap: each
+#     arm's AUC + 95% CI come from resampling (lsens, lspec) and
+#     integrating each SROC (trapezoidal rule); the dAUC estimate, CI and
+#     p-value come from differencing the two arms' independent draws (no
+#     external packages).  Set `auc_ic = FALSE` to skip the bootstrap
+#     (faster preview; AUC row omitted, in-panel AUC loses its CI).
 # The returned object draws itself when printed (no grid:: needed).
 png("sroc_pairwise.png", width = 1800, height = 1000, res = 150)
 dta_sroc_pair(res,

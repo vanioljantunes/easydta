@@ -7,12 +7,12 @@
 #   logit(TPR) = lsens - (tau_sens / tau_spec) * (logit(FPR) - (-lspec))
 #              [ because logit(FPR) = -logit(Sp) ]
 #
-# AUC: primary method is the bootstrap from `dmetatools::AUC_boot` (Noma
-# et al.), which resamples the bivariate model and yields both a point
-# estimate and a bootstrap CI. When `dmetatools` is not installed -- or
-# when `auc_method = "trapz"` is requested explicitly -- we still return
-# a CI: the trapz path runs a parametric MVN bootstrap on the cached
-# fixed-effect VCV (lsens, lspec) and integrates each resampled SROC.
+# AUC: the trapezoidal integral of the fitted SROC curve over a fixed FPR
+# grid (`pracma::trapz`). The CI is a parametric MVN bootstrap: draw
+# (lsens, lspec) from N(centre, vcov_fixed) -- slope held at the point
+# estimate -- integrate each resampled SROC, take quantiles. For a pairwise
+# comparison the AUC difference (dAUC) reuses the same per-arm draws: the
+# arms are bootstrapped independently and differenced (no external deps).
 #
 # Layout: in-plot summary box and legend box are flush against the
 # bottom-right and bottom-left panel corners (axis expansion is disabled).
@@ -38,11 +38,10 @@
 #'   to overlap each other and the sROC curve -- they never reposition the
 #'   underlying study points.
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
-#' @param auc_method  "boot" (default; uses `dmetatools::AUC_boot`) or
-#'   "trapz" (numerical integration of the SROC curve with `pracma::trapz`;
-#'   automatically used as a fallback if `dmetatools` is not installed).
-#'   In both cases an AUC CI is returned.
-#' @param B           Number of bootstrap replicates (default 2000).
+#' @param auc_ci      Compute a CI for the AUC (parametric MVN bootstrap)?
+#'   (default TRUE). If FALSE only the trapezoidal point estimate is returned.
+#' @param B           Number of MVN-bootstrap replicates for the AUC CI
+#'   (default 2000).
 #' @param conf        Confidence level (default 0.95).
 #' @param n_grid      Grid size for the SROC curve (default 200).
 #'
@@ -63,12 +62,10 @@ dta_sroc <- function(fit,
                      labels = FALSE,
                      auc   = TRUE,
                      auc_ci = TRUE,
-                     auc_method = c("boot", "trapz"),
                      B     = 2000,
                      conf  = 0.95,
                      n_grid = 200,
                      auc_override = NULL) {
-  auc_method <- match.arg(auc_method)
   stopifnot(inherits(fit, "dta_single"))
   f <- .fixed_se_sp(fit$fit)
   Psi <- fit$Psi
@@ -123,8 +120,7 @@ dta_sroc <- function(fit,
       ord <- order(curve$fpr)
       auc_val <- pracma::trapz(curve$fpr[ord], curve$tpr[ord])
     } else {
-      auc_res <- .compute_auc(fit, NULL, auc_method, B, conf, curve,
-                              "TP", "FP", "FN", "TN",
+      auc_res <- .compute_auc(fit, B, conf, curve,
                               slope = slope, fpr_grid = fpr_grid)
       auc_val     <- auc_res$AUC
       auc_ci_pair <- auc_res$CI
@@ -348,12 +344,13 @@ dta_sroc <- function(fit,
 #'   bivariate model with the relevant fixed effect constrained equal
 #'   between arms (rows 2 and 3 of `x$compare$lr_tests`); the absolute
 #'   difference (with delta-method CI) comes from `x$compare$differences`.
-#' * AUC inference (when `auc_ic = TRUE`) uses
-#'   `dmetatools::AUC_comparison()` (Noma & Matsushima 2020): a
-#'   parametric bootstrap that jointly returns each arm's AUC + 95% CI,
-#'   the difference dAUC + 95% CI, and a p-value for `dAUC = 0`.  When
-#'   `dmetatools` is not installed, AUCs are taken from `dta_sroc()` and
-#'   the p-value is reported as `n/a`.
+#' * AUC inference (when `auc_ic = TRUE`) is a parametric MVN bootstrap:
+#'   each arm's AUC + 95% CI come from resampling `(lsens, lspec)` and
+#'   integrating each SROC (the `dta_sroc()` method). The difference
+#'   `dAUC = AUC.e - AUC.c`, its 95% CI, and the p-value for `dAUC = 0`
+#'   are formed by differencing the two arms' bootstrap draws. The arms
+#'   are drawn independently, so the dAUC CI ignores within-study
+#'   correlation and is mildly conservative. No external packages needed.
 #'
 #' @param x         A `dta_pairwise_result` (output of
 #'   `dta_compare_tests()`) *or* a named list of two `dta_single` fits.
@@ -370,13 +367,13 @@ dta_sroc <- function(fit,
 #'   per-panel summary boxes show just the AUC point estimate (no CI),
 #'   and the differences table omits the AUC row entirely -- skipping
 #'   the bootstrap is much faster and useful for previewing.
-#' @param B         Bootstrap replicates for `AUC_comparison()` (default
+#' @param B         MVN-bootstrap replicates for the AUC / dAUC CIs (default
 #'   2000); ignored when `auc_ic = FALSE`.
 #' @param conf      Confidence level (default 0.95).
 #' @param ncol      Number of columns for the SROC panel row (default 2).
 #' @param ...       Extra arguments forwarded to both `dta_sroc()` calls
-#'   (e.g. `auc_method`, `labels`, `pred`).  `auc_ci` is set
-#'   automatically from `auc_ic` and should not be overridden.
+#'   (e.g. `labels`, `pred`).  `auc_ci` is set automatically from `auc_ic`
+#'   and should not be overridden.
 #'
 #' @return A `gtable` of class `"dta_sroc_pair"`; its `print()` method draws
 #'   it on the current device, so it renders automatically when returned at
@@ -415,9 +412,9 @@ dta_sroc_pair <- function(x,
   fit_e <- arms[[arm.e]]
   fit_c <- arms[[arm.c]]
 
-  # Joint AUC inference up-front so each panel can reuse the same numbers
-  # via `auc_override` and we get one consistent dAUC + p-value for the
-  # differences table.  Skipped entirely when auc_ic = FALSE.
+  # Per-arm AUC + dAUC inference up-front so each panel can reuse the same
+  # numbers via `auc_override` and the differences table gets one consistent
+  # dAUC + p-value.  Skipped entirely when auc_ic = FALSE.
   auc_pair <- if (isTRUE(auc_ic)) {
     .compute_auc_pair(fit_e, fit_c, B = B, conf = conf)
   } else NULL
@@ -482,48 +479,49 @@ print.dta_sroc_pair <- function(x, ...) {
   invisible(x)
 }
 
-# Joint AUC + dAUC inference via dmetatools::AUC_comparison() when
-# available.  Returns a list with $arm.e / $arm.c (each: list(AUC, CI))
-# and $diff (list(est, ci, p)).  When dmetatools is missing, returns NULL
-# for all CIs and p (the panel `dta_sroc()` calls then compute per-arm
-# AUC point estimates themselves via the trapz path).
-.compute_auc_pair <- function(fit_e, fit_c, B = 2000, conf = 0.95) {
-  if (!requireNamespace("dmetatools", quietly = TRUE) ||
-      !requireNamespace("mada", quietly = TRUE)) {
-    warning("dmetatools/mada not installed; falling back to per-arm AUC ",
-            "without a joint dAUC p-value.\n",
-            "  Install with:\n",
-            "    install.packages('mada')\n",
-            "    remotes::install_github('nomahi/dmetatools')",
-            call. = FALSE)
-    return(list(arm.e = NULL, arm.c = NULL, diff = NULL))
-  }
-  for (pkg in c("mada", "MASS")) {
-    if (!paste0("package:", pkg) %in% search()) {
-      suppressPackageStartupMessages(attachNamespace(pkg))
-    }
-  }
-  ce <- .extract_counts(fit_e, NULL, "TP", "FP", "FN", "TN")
-  cc <- .extract_counts(fit_c, NULL, "TP", "FP", "FN", "TN")
+# Per-arm SROC geometry + AUC point estimate, matching dta_sroc()'s
+# construction (Harbord slope = tau_sens / tau_spec; FPR grid 0.001..0.999).
+.arm_auc_geom <- function(fit, n_grid = 200) {
+  f   <- .fixed_se_sp(fit$fit)
+  Psi <- fit$Psi
+  tau_sens <- sqrt(Psi[1, 1])
+  tau_spec <- sqrt(Psi[2, 2])
+  slope    <- if (tau_spec > 0) tau_sens / tau_spec else 0
+  fpr_grid <- seq(0.001, 0.999, length.out = n_grid)
+  logit_sp <- -stats::qlogis(fpr_grid)
+  tpr      <- stats::plogis(f$lsens - slope * (logit_sp - f$lspec))
+  ord      <- order(fpr_grid)
+  list(slope = slope, fpr_grid = fpr_grid,
+       AUC = pracma::trapz(fpr_grid[ord], tpr[ord]))
+}
+
+# Per-arm AUC + dAUC inference, mada-free.  Each arm's AUC CI is the
+# parametric MVN bootstrap from .trapz_auc_draws(); the dAUC estimate,
+# CI, and p-value come from differencing the two arms' independent draws
+# (so the dAUC CI ignores within-study correlation -- mildly conservative).
+# Returns list($arm.e, $arm.c each list(AUC, CI), $diff list(est, ci, p)).
+.compute_auc_pair <- function(fit_e, fit_c, B = 2000, conf = 0.95,
+                              n_grid = 200) {
+  ge <- .arm_auc_geom(fit_e, n_grid)
+  gc <- .arm_auc_geom(fit_c, n_grid)
+  draws_e <- .trapz_auc_draws(fit_e, ge$slope, ge$fpr_grid, B)
+  draws_c <- .trapz_auc_draws(fit_c, gc$slope, gc$fpr_grid, B)
+
   alpha <- 1 - conf
-  res <- tryCatch(
-    dmetatools::AUC_comparison(ce$TP, ce$FP, ce$FN, ce$TN,
-                               cc$TP, cc$FP, cc$FN, cc$TN,
-                               B = B, alpha = alpha),
-    error = function(e) {
-      warning("dmetatools::AUC_comparison failed: ", conditionMessage(e),
-              call. = FALSE)
-      NULL
-    }
-  )
-  if (is.null(res)) return(list(arm.e = NULL, arm.c = NULL, diff = NULL))
-  list(
-    arm.e = list(AUC = unname(res$AUC1), CI = unname(res$AUC1_CI)),
-    arm.c = list(AUC = unname(res$AUC2), CI = unname(res$AUC2_CI)),
-    diff  = list(est = unname(res$dAUC),
-                 ci  = unname(res$dAUC_CI),
-                 p   = unname(res$pvalue))
-  )
+  qci <- function(v) unname(stats::quantile(v, c(alpha / 2, 1 - alpha / 2),
+                                            na.rm = TRUE))
+
+  arm.e <- list(AUC = ge$AUC, CI = if (!is.null(draws_e)) qci(draws_e) else NULL)
+  arm.c <- list(AUC = gc$AUC, CI = if (!is.null(draws_c)) qci(draws_c) else NULL)
+
+  diff <- if (!is.null(draws_e) && !is.null(draws_c)) {
+    d <- draws_e - draws_c
+    p <- min(1, 2 * min(mean(d <= 0), mean(d >= 0)))
+    list(est = ge$AUC - gc$AUC, ci = qci(d), p = p)
+  } else {
+    list(est = ge$AUC - gc$AUC, ci = c(NA_real_, NA_real_), p = NA_real_)
+  }
+  list(arm.e = arm.e, arm.c = arm.c, diff = diff)
 }
 
 # Build the differences table shown below dta_sroc_pair() panels.
@@ -532,8 +530,8 @@ print.dta_sroc_pair <- function(x, ...) {
 # Sens/Spec diff CIs come from x$compare$differences (delta method),
 # sign-flipped if the comparison was estimated as (.c - .e) by the
 # pairwise model's level ordering.
-# AUC row uses auc_pair from dmetatools::AUC_comparison; omitted when
-# auc_ic = FALSE.
+# AUC row uses auc_pair (per-arm AUC + CI and the bootstrap dAUC est/CI/p);
+# omitted when auc_ic = FALSE.
 .sroc_pair_diff_table <- function(fit_e, fit_c, p_e, p_c,
                                   test.e, test.c, arm.e, arm.c,
                                   x, auc_pair, auc_ic, conf) {
@@ -616,70 +614,40 @@ print.dta_sroc_pair <- function(x, ...) {
   out
 }
 
-# AUC dispatcher: prefer dmetatools::AUC_boot; fall back to trapezoid.
-# Both paths return a CI -- the trapz path uses a parametric MVN bootstrap
-# on the cached fixed-effect VCV so users without dmetatools still see one.
-.compute_auc <- function(fit, data, auc_method, B, conf,
-                         curve, tp, fp, fn, tn,
-                         slope = NULL, fpr_grid = NULL) {
-  if (auc_method == "boot") {
-    if (!requireNamespace("dmetatools", quietly = TRUE) ||
-        !requireNamespace("mada", quietly = TRUE)) {
-      warning("dmetatools (and its dep 'mada') not installed; falling back ",
-              "to auc_method = 'trapz'.\n",
-              "  Install with:\n",
-              "    install.packages('mada')\n",
-              "    remotes::install_github('nomahi/dmetatools')",
-              call. = FALSE)
-      return(.compute_auc(fit, data, "trapz", B, conf, curve,
-                          tp, fp, fn, tn,
-                          slope = slope, fpr_grid = fpr_grid))
-    }
-    # AUC_boot calls mada::reitsma() and MASS::mvrnorm() without namespace
-    # qualifiers, so both must be attached (not merely loaded).
-    for (pkg in c("mada", "MASS")) {
-      if (!paste0("package:", pkg) %in% search()) {
-        suppressPackageStartupMessages(attachNamespace(pkg))
-      }
-    }
-    counts <- .extract_counts(fit, data, tp, fp, fn, tn)
-    res <- dmetatools::AUC_boot(counts$TP, counts$FP, counts$FN, counts$TN,
-                                B = B, alpha = conf)
-    return(list(AUC = unname(res$AUC),
-                CI  = unname(res$CI),
-                method = "dmetatools::AUC_boot"))
-  }
-
+# AUC = trapezoidal integral of the fitted SROC curve; CI = parametric MVN
+# bootstrap (.trapz_auc_ci).
+.compute_auc <- function(fit, B, conf, curve, slope = NULL, fpr_grid = NULL) {
   ord <- order(curve$fpr)
   AUC <- pracma::trapz(curve$fpr[ord], curve$tpr[ord])
-
-  CI <- .trapz_auc_ci(fit, slope, fpr_grid, B, conf)
-  list(AUC = AUC, CI = CI, method = "trapezoid")
+  CI  <- .trapz_auc_ci(fit, slope, fpr_grid, B, conf)
+  list(AUC = AUC, CI = CI)
 }
 
-# Parametric MVN bootstrap CI for the trapz AUC.  Samples (lsens, lspec)
-# from N(centre, vcov_fixed) and integrates each resampled SROC over the
-# same FPR grid.  Slope (tau_sens / tau_spec) is held fixed at the point
-# estimate -- a reasonable approximation when the random-effect VCV is
-# itself uncertain and we just need a defensible interval.
-.trapz_auc_ci <- function(fit, slope, fpr_grid, B, conf) {
+# B parametric-bootstrap AUC draws: sample (lsens, lspec) ~ N(centre,
+# vcov_fixed) and integrate each resampled SROC over the FPR grid.  Slope
+# (tau_sens / tau_spec) is held fixed at the point estimate.  Returns a
+# numeric vector of length B, or NULL if the draw is not possible.
+.trapz_auc_draws <- function(fit, slope, fpr_grid, B) {
   if (is.null(slope) || is.null(fpr_grid) || B <= 1) return(NULL)
   f <- .fixed_se_sp(fit$fit)
   centre <- c(f$lsens, f$lspec)
-  V <- f$vcov_fixed
   draws <- tryCatch(
-    MASS::mvrnorm(n = B, mu = centre, Sigma = V),
+    MASS::mvrnorm(n = B, mu = centre, Sigma = f$vcov_fixed),
     error = function(e) NULL
   )
   if (is.null(draws)) return(NULL)
-  logit_fpr <- stats::qlogis(fpr_grid)
-  logit_sp  <- -logit_fpr
+  logit_sp <- -stats::qlogis(fpr_grid)
   ord <- order(fpr_grid)
-  aucs <- apply(draws, 1, function(p) {
-    logit_se <- p[1] - slope * (logit_sp - p[2])
-    tpr <- stats::plogis(logit_se)
+  apply(draws, 1, function(p) {
+    tpr <- stats::plogis(p[1] - slope * (logit_sp - p[2]))
     pracma::trapz(fpr_grid[ord], tpr[ord])
   })
+}
+
+# Parametric MVN bootstrap CI for the trapz AUC (quantiles of the draws).
+.trapz_auc_ci <- function(fit, slope, fpr_grid, B, conf) {
+  aucs <- .trapz_auc_draws(fit, slope, fpr_grid, B)
+  if (is.null(aucs)) return(NULL)
   alpha <- 1 - conf
   unname(stats::quantile(aucs, c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))
 }
