@@ -13,21 +13,28 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 if (!requireNamespace("easydta", quietly = TRUE)) {
   remotes::install_github("vanioljantunes/easydta")
 }
-pacman::p_load(easydta)   # attaches ggplot2 too (easydta Depends on it)
+pacman::p_load(easydta, readxl, rstudioapi)   # easydta attaches ggplot2 too
 ```
 
-```{r load_data}
-# Cochrane Handbook chapter 10 / Appendix 14 anti-CCP dataset
-# (Nishimura et al. systematic review).  Bundled single-arm subset; the
-# `test` column carries the assay generation (CCP1 vs CCP2).  For the
-# single-test demo we use the larger CCP2 arm.
-data(anti_ccp2)
-d <- anti_ccp2
-head(d)
+```{r import_data}
+# Pick an Excel workbook with one sheet per arm (e.g. the bundled
+# inst/extdata/anti_ccp.xlsx, sheets "CCP1" / "CCP2").
+myfile <- selectFile(caption = "choose data")
+
+# Directory of the chosen file -- plots are saved next to it.
+mwd <- dirname(myfile)
+
+# Read every sheet into a named list `ma`, keyed by sheet name.
+sheet_names <- excel_sheets(myfile)
+ma <- lapply(sheet_names, function(x) as.data.frame(read_excel(myfile, sheet = x)))
+names(ma) <- sheet_names
 ```
 
 ```{r fit}
-fit <- dta_fit_single(d, wide = TRUE,
+# Pick one arm. Wide 2x2 input is auto-detected -- no `wide = TRUE` needed.
+data <- ma$CCP2
+
+fit <- dta_fit_single(data,
                       tp = "TP", fp = "FP", fn = "FN", tn = "TN",
                       studlab = "studlab")
 print(fit)
@@ -46,21 +53,19 @@ single composite. Reading the panels left to right:
 3. the numeric sensitivity `est (lci-uci)` column;
 4. the same pair of panels for specificity.
 
-The bivariate Zhou-Dendukuri I² is split across three small italic
-annotations placed directly under each summary block: `I²(biv)` under
-the Summary label, `I²(sens)` under the sens diamond, `I²(spec)` under
-the spec diamond. A solid x-axis line with ticks sits just below the
-diamond row on each CI panel; row backgrounds are zebra-shaded
-continuously across all five panels.
+The bivariate Zhou-Dendukuri I² is shown as a single `I²` annotation under
+the **Summary** label. A solid x-axis line with ticks sits just below the
+diamond row on each CI panel; row backgrounds are zebra-shaded continuously
+across all five panels, and the whole composite is centred in the device.
 
 ```{r save_forest}
-png("forest_ccp2.png", width = 1400, height = 1000, res = 150)
+png(paste0(mwd, "/forest_ccp2.png"), width = 1400, height = 1000, res = 150)
 dta_forest(fit)
 dev.off()
 ```
 
 ```{r save_sroc}
-png("sroc_ccp2.png", width = 1200, height = 1000, res = 150)
+png(paste0(mwd, "/sroc_ccp2.png"), width = 1200, height = 1000, res = 150)
 p <- dta_sroc(fit, test = "anti-CCP2",
               outcome = "rheumatoid arthritis",
               population = "adults")
@@ -79,7 +84,7 @@ below reports the weighted-regression Deeks test for funnel asymmetry
 Deeks p; p < 0.05 suggests asymmetry consistent with publication bias).
 
 ```{r save_funnel}
-png("funnel_ccp2.png", width = 1200, height = 1100, res = 150)
+png(paste0(mwd, "/funnel_ccp2.png"), width = 1200, height = 1100, res = 150)
 dta_funnel(fit,
            test       = "anti-CCP2",
            outcome    = "rheumatoid arthritis",

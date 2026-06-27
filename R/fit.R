@@ -22,12 +22,15 @@
 #'             (0 + sens + spec | study_id),
 #'         data = long, family = binomial, nAGQ = 1)
 #'
-#' @param long   Long-format data frame produced by `dta_reshape()`, OR a
-#'   wide data frame -- in which case `wide = TRUE` will call `dta_reshape()`.
+#' @param long   Data frame: either long format (from `dta_reshape()`, with
+#'   `sens`/`spec`/`true`/`n` columns) OR a wide one-row-per-study 2x2 table
+#'   (with `TP`/`FP`/`FN`/`TN` columns). The format is auto-detected; pass
+#'   `wide` explicitly to override.
 #' @param nAGQ   Integer. 1 = Laplace (default, fastest, matches the Handbook
 #'   baseline). Increase (e.g. 5, 7) for adaptive Gauss-Hermite quadrature.
-#' @param wide   Logical. If TRUE, `long` is actually wide and will be
-#'   reshaped first.
+#' @param wide   Logical, or `NA` (default) to auto-detect: a frame lacking the
+#'   long-format columns `sens`/`spec`/`true`/`n` is treated as wide and
+#'   reshaped via `dta_reshape()` first.
 #' @param conf   Confidence level used for the prediction-region ellipse
 #'   computed as part of the heterogeneity summary (default 0.95).
 #' @param ...    Forwarded to `dta_reshape()` when `wide = TRUE`.
@@ -42,7 +45,10 @@
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
 #' print(fit)
 #' @export
-dta_fit_single <- function(long, nAGQ = 1L, wide = FALSE, conf = 0.95, ...) {
+dta_fit_single <- function(long, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
+  if (is.na(wide)) {
+    wide <- !all(c("sens", "spec", "true", "n") %in% names(long))
+  }
   if (wide) long <- dta_reshape(long, ...)
   .check_long(long)
 
