@@ -2,8 +2,6 @@
 % Please edit documentation in R/guides.R
 \name{easydta-2-single-arm}
 \alias{easydta-2-single-arm}
-\alias{easydta-single-arm}
-\alias{single_arm_analysis}
 \title{easydta guide 2: Single-arm analysis}
 \description{
 Meta-analyse one diagnostic test across many studies with the bivariate

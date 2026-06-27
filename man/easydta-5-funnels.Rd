@@ -2,8 +2,6 @@
 % Please edit documentation in R/guides.R
 \name{easydta-5-funnels}
 \alias{easydta-5-funnels}
-\alias{easydta-funnels}
-\alias{funnel_plots}
 \title{easydta guide 5: Funnel plots}
 \description{
 Deeks funnel plot and asymmetry test (publication-bias diagnostic).
