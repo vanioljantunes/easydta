@@ -13,7 +13,7 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 if (!requireNamespace("easydta", quietly = TRUE)) {
   remotes::install_github("vanioljantunes/easydta")
 }
-pacman::p_load(ggplot2, easydta)
+pacman::p_load(easydta)   # attaches ggplot2 too (easydta Depends on it)
 ```
 
 ```{r load_data}
