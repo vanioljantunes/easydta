@@ -11,6 +11,17 @@ meta-analysis of diagnostic test accuracy (DTA) studies, following the
 Cochrane Handbook for Systematic Reviews of Diagnostic Test Accuracy
 (v2.0, 2023), Chapter 10 and Appendix 12 (Takwoingi et al.).
 }
+\section{Guides (read in order)}{
+
+\enumerate{
+\item \link{easydta-1-data-preparation} -- shaping data and the bundled datasets.
+\item \link{easydta-2-single-arm} -- one-test meta-analysis.
+\item \link{easydta-3-pairwise} -- two-test comparison.
+\item \link{easydta-4-forests} -- coupled forest plots.
+\item \link{easydta-5-funnels} -- Deeks funnel + asymmetry test.
+}
+}
+
 \section{Single-test workflow}{
 
 \describe{
