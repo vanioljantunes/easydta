@@ -18,12 +18,11 @@ pacman::p_load(ggplot2, grid, gridExtra, easydta)
 
 ```{r load_data}
 # Cochrane Handbook chapter 10 / Appendix 14 anti-CCP dataset
-# (Nishimura et al. systematic review).  Each row is one study with a
-# 2x2 table; `generation` carries the test type (CCP1 vs CCP2).
-path <- system.file("extdata/anti_ccp.csv", package = "easydta")
-d <- utils::read.csv(path, stringsAsFactors = FALSE)
-# For the single-test demo we restrict to the larger CCP2 subset.
-d <- d[d$generation == "CCP2", ]
+# (Nishimura et al. systematic review).  Bundled single-arm subset; the
+# `test` column carries the assay generation (CCP1 vs CCP2).  For the
+# single-test demo we use the larger CCP2 arm.
+data(anti_ccp2)
+d <- anti_ccp2
 head(d)
 ```
 

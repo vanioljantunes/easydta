@@ -84,20 +84,22 @@ Use this for the single-arm workflow (§4) and also for the pairwise
 workflow (§5) when the two arms are encoded as a between-study
 covariate (e.g. anti-CCP1 vs anti-CCP2 across different studies).
 
-**(b) Paired wide** — one row per study, `.e` (intervention) and `.c`
-(control) suffixes:
+**(b) Paired wide** — one row per study, `.e` (intervention / index) and
+`.c` (control / comparator) suffixes; each study evaluated **both** tests:
 
-| author | year | TP.e | FP.e | FN.e | TN.e | TP.c | FP.c | FN.c | TN.c |
-|--------|------|------|------|------|------|------|------|------|------|
-| Lee    | 2019 |  88  |   7  |  12  |  93  |  80  |  10  |  20  |  90  |
+| studlab    | TP.e | FP.e | FN.e | TN.e | TP.c | FP.c | FN.c | TN.c |
+|------------|------|------|------|------|------|------|------|------|
+| Dewey 2006 |  62  |   5  |   4  |  46  |  42  |   2  |   7  |  39  |
 
-Use this for paired designs (CT vs MRI, ELISA vs IFA, etc.).
+Pass this single frame to `dta_pairwise()` (§5). The two arms share a
+`studlab`, so the random effect captures the within-study correlation.
 
 ### Bundled example datasets
 
 | File / `data()` name | Description |
 |----------------------|-------------|
-| `data(anti_ccp)` (also `inst/extdata/anti_ccp.csv`) | 37-study anti-CCP dataset (Cochrane Handbook ch. 10). Columns: `studlab, TP, FP, FN, TN, generation` (CCP1 vs CCP2). Drives the single-arm workflow when subset, and the covariate-pairwise workflow when used whole. |
+| `data(anti_ccp1)`, `data(anti_ccp2)` (also `inst/extdata/anti_ccp.xlsx`, one sheet per arm: `CCP1`, `CCP2`) | anti-CCP single-arm subsets (Cochrane Handbook ch. 10): 8 CCP1 + 29 CCP2 studies. Columns: `studlab, TP, FP, FN, TN, test`. Each drives the single-arm workflow (§4); `rbind(anti_ccp1, anti_ccp2)` drives the covariate comparison via `dta_compare_tests()`. |
+| `data(schuetz)` (also `inst/extdata/schuetz.xlsx`, single sheet `schuetz`) | 5-study CT-vs-MRI dataset for coronary artery disease (Cochrane Appendix 12, direct subset). Wide: `studlab` + `.e` (CT) / `.c` (MRI) counts. Each study did both tests (paired) — drives the wide `dta_pairwise()` workflow (§5). |
 
 ### Reshaping (only needed when calling fit functions yourself)
 
@@ -106,20 +108,12 @@ Use this for paired designs (CT vs MRI, ELISA vs IFA, etc.).
 long  <- dta_reshape(data,
                      tp = "TP", fp = "FP", fn = "FN", tn = "TN",
                      studlab = "studlab",
-                     extra   = "generation")    # optional covariate
-
-# Paired wide (.e/.c) -> long, with the two arms stacked on a `test` col
-long2 <- dta_reshape_pairwise(
-  data,
-  intervention = "CT", control = "MRI",
-  tp.e = "TP.e", fp.e = "FP.e", fn.e = "FN.e", tn.e = "TN.e",
-  tp.c = "TP.c", fp.c = "FP.c", fn.c = "FN.c", tn.c = "TN.c"
-)
+                     extra   = "test")   # optional covariate
 ```
 
 In day-to-day use you can usually skip this step:
-`dta_fit_single(wide = TRUE, ...)` and `dta_compare_tests(...)` reshape
-internally.
+`dta_fit_single(wide = TRUE, ...)`, `dta_pairwise(...)`, and
+`dta_compare_tests(...)` reshape internally.
 
 ---
 
@@ -130,10 +124,9 @@ comparison.
 
 ```r
 library(easydta)
-data(anti_ccp)
-ccp2 <- subset(anti_ccp, generation == "CCP2")
+data(anti_ccp2)
 
-fit <- dta_fit_single(ccp2, wide = TRUE,
+fit <- dta_fit_single(anti_ccp2, wide = TRUE,
                       tp = "TP", fp = "FP", fn = "FN", tn = "TN",
                       studlab = "studlab")
 print(fit)            # Se, Sp, DOR, LR+, LR- with CIs
@@ -170,24 +163,42 @@ dta_derived(fit)      # DOR / LR+ / LR- with delta-method CIs
 
 ## 5. Pairwise DTA analysis
 
-**When to use:** two tests evaluated head-to-head, either as a
-between-study covariate (e.g. anti-CCP1 vs anti-CCP2) or as a paired
-design (CT vs MRI in the same study).
+**When to use:** two tests evaluated head-to-head. For a **paired** design
+(each study did both tests) pass the wide `.e`/`.c` frame to
+`dta_pairwise()`. For a **between-study covariate** design (each study did
+one test, e.g. `anti_ccp`) use `dta_compare_tests()`.
 
 ### One-call analysis
 
 ```r
 library(easydta)
-data(anti_ccp)
 
-# Reshape + fit pairwise GLMM + LR tests + per-arm single fits in one go
-res <- dta_compare_tests(anti_ccp, test_var = "generation")
+# Paired wide frame: one row per study, .e = CT (index), .c = MRI
+data(schuetz)
+res <- dta_pairwise(schuetz,
+                    studlab      = "studlab",
+                    intervention = "CT",
+                    control      = "MRI")
 print(res)
 # Prints:
 #   - per-arm Se / Sp / DOR / LR+/- summary
 #   - LR tests A vs B (overall), C vs B (Sens differs?),
 #                D vs B (Spec differs?)
 #   - Absolute & relative Se/Sp differences with delta-method 95% CIs
+
+# Variance structure (Cochrane Appendix 12): "equal" = model B (default),
+# "unequal" = model E (separate between-study variances per test):
+res_E <- dta_pairwise(schuetz, studlab = "studlab",
+                      intervention = "CT", control = "MRI",
+                      variance = "unequal")
+```
+
+For a single frame carrying the test column as a between-study covariate
+(e.g. `anti_ccp`), use the sister entry point:
+
+```r
+data(anti_ccp1); data(anti_ccp2)
+res_cov <- dta_compare_tests(rbind(anti_ccp1, anti_ccp2), test_var = "test")
 ```
 
 `res` is a `dta_pairwise_result` with `$pair`, `$compare`, and
@@ -198,27 +209,29 @@ identifying which level is intervention and which is control.
 
 ```r
 # Per-arm forest -- pass the test name directly, no $arms[[]] gymnastics
-dta_forest(res, arm = "CCP1")
-dta_forest(res, arm = "CCP2")
+dta_forest(res, arm = "CT")
+dta_forest(res, arm = "MRI")
 
 # Side-by-side SROC + Cochrane-style differences table beneath
 #   .e = intervention, .c = control
 dta_sroc_pair(res,
-              arm.e = "CCP2", test.e = "anti-CCP2",
-              arm.c = "CCP1", test.c = "anti-CCP1",
-              outcome    = "rheumatoid arthritis",
-              population = "adults",
+              arm.e = "CT",  test.e = "CT",
+              arm.c = "MRI", test.c = "MRI",
+              outcome    = "coronary artery disease",
+              population = "adults with suspected CAD",
               auc_ic = TRUE)   # FALSE skips the AUC bootstrap (faster)
 ```
 
 The differences table reports per-arm Sens, Spec and AUC (each with
 95% CI), the absolute difference `.e - .c` (95% CI), and a p-value:
 
-| Measure | anti-CCP2 | anti-CCP1 | Diff (anti-CCP2 - anti-CCP1) | P-value |
+| Measure | CT | MRI | Diff (CT - MRI) | P-value |
 |---|---|---|---|---|
-| Sensitivity | 0.705 (0.646, 0.758) | 0.481 (0.435, 0.526) | 0.228 (0.110, 0.347) | <0.001 |
-| Specificity | 0.953 (0.937, 0.966) | 0.969 (0.947, 0.982) | -0.016 (-0.038, 0.006) | 0.208 |
-| AUC         | 0.918 (0.886, 0.940) | 0.709 (0.512, 0.952) | 0.209 (-0.031, 0.411) | 0.100 |
+| Sensitivity | 0.945 (0.897, 0.971) | 0.861 (0.794, 0.909) | 0.084 (0.017, 0.150) | 0.012 |
+| Specificity | 0.861 (0.744, 0.929) | 0.708 (0.546, 0.830) | 0.153 (0.047, 0.259) | 0.001 |
+
+*(AUC row appears when `auc_ic = TRUE`; it requires the
+`dmetatools::AUC_comparison()` bootstrap.)*
 
 - Sens / Spec p-values are LR tests (Cochrane Appendix 12, rows 2-3 of
   `res$compare$lr_tests`).
@@ -232,7 +245,8 @@ The vignette: [`examples/example_pairwise.Rmd`](examples/example_pairwise.Rmd).
 ### Lower-level pairwise API (if you don't want the wrapper)
 
 ```r
-long  <- dta_reshape_pairwise(d, intervention = "CT", control = "MRI")
+long  <- dta_reshape_pairwise(schuetz, studlab = "studlab",
+                              intervention = "CT", control = "MRI")
 pair  <- dta_fit_pairwise(long, test_var = "test")  # models A/B/C/D
 cmp   <- dta_compare(pair)                          # LR tests + diffs
 ```
@@ -252,10 +266,10 @@ dta_funnel(fit,
            population = "adults")
 
 # Per arm of a pairwise comparison
-dta_funnel(res, arm = "CCP1",
-           test = "anti-CCP1",
-           outcome    = "rheumatoid arthritis",
-           population = "adults")
+dta_funnel(res, arm = "CT",
+           test = "CT",
+           outcome    = "coronary artery disease",
+           population = "adults with suspected CAD")
 ```
 
 The plot puts `ln(DOR)` on the x-axis and `1/sqrt(ESS)` on the y-axis

@@ -9,6 +9,9 @@
 #' @param title Plot title.
 #'
 #' @return A ggplot object.
+#' @examples
+#' data(anti_ccp2)
+#' dta_roc_points(anti_ccp2)
 #' @export
 dta_roc_points <- function(data,
                            tp = "TP",

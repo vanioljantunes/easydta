@@ -1,5 +1,5 @@
 ---
-title: "easydta: test-comparison DTA meta-analysis (anti-CCP1 vs CCP2)"
+title: "easydta: paired test-comparison DTA meta-analysis (CT vs MRI)"
 output: html_document
 ---
 
@@ -17,30 +17,35 @@ pacman::p_load(ggplot2, grid, gridExtra, easydta)
 ```
 
 ```{r load_data}
-# Cochrane Handbook chapter 10 / Appendix 14 anti-CCP dataset
-# (Nishimura et al.).  Two test generations (CCP1, CCP2) compared as a
-# between-study covariate -- this matches Cochrane Figure 10.4.a.
-path <- system.file("extdata/anti_ccp.csv", package = "easydta")
-d <- utils::read.csv(path, stringsAsFactors = FALSE)
+# Cochrane Handbook Appendix 12 schuetz dataset: CT vs MRI for coronary
+# artery disease.  Bundled wide frame, one row per study, with `.e` (CT)
+# and `.c` (MRI) suffixed columns -- every study evaluated BOTH tests
+# (paired / direct design).
+data(schuetz)
+d <- schuetz
 head(d)
 ```
 
 ```{r analyse}
-# One call for the covariate / unpaired comparison: reshape + LR fit +
-# comparison + per-arm single fits, keyed by the `generation` column.
-res <- dta_compare_tests(d, test_var = "generation")
+# One call for the paired comparison: wide `.e`/`.c` frame in, full
+# pipeline out (reshape + LR fit + comparison + per-arm single fits).
+# `.e` = CT (index), `.c` = MRI (comparator).
+res <- dta_pairwise(d,
+                    studlab      = "studlab",
+                    intervention = "CT",
+                    control      = "MRI")
 print(res)
 ```
 
-```{r save_forest_CCP1}
-png("forest_CCP1.png", width = 1400, height = 700, res = 150)
-dta_forest(res, arm = "CCP1")
+```{r save_forest_CT}
+png("forest_CT.png", width = 1400, height = 700, res = 150)
+dta_forest(res, arm = "CT")
 dev.off()
 ```
 
-```{r save_forest_CCP2}
-png("forest_CCP2.png", width = 1400, height = 1000, res = 150)
-dta_forest(res, arm = "CCP2")
+```{r save_forest_MRI}
+png("forest_MRI.png", width = 1400, height = 1000, res = 150)
+dta_forest(res, arm = "MRI")
 dev.off()
 ```
 
@@ -48,29 +53,28 @@ dev.off()
 # Cochrane Handbook ch. 10.6.4 / Deeks, Macaskill & Irwig (2005):
 # funnel plot of ln(DOR) against 1/sqrt(ESS) plus the weighted-regression
 # Deeks test for funnel asymmetry (proxy for publication bias).  Per arm.
-png("funnel_CCP1.png", width = 1200, height = 1100, res = 150)
+png("funnel_CT.png", width = 1200, height = 1100, res = 150)
 grid::grid.draw(
-  dta_funnel(res, arm = "CCP1",
-             test = "anti-CCP1",
-             outcome    = "rheumatoid arthritis",
-             population = "adults")
+  dta_funnel(res, arm = "CT",
+             test = "CT",
+             outcome    = "coronary artery disease",
+             population = "adults with suspected CAD")
 )
 dev.off()
 
-png("funnel_CCP2.png", width = 1200, height = 1100, res = 150)
+png("funnel_MRI.png", width = 1200, height = 1100, res = 150)
 grid::grid.draw(
-  dta_funnel(res, arm = "CCP2",
-             test = "anti-CCP2",
-             outcome    = "rheumatoid arthritis",
-             population = "adults")
+  dta_funnel(res, arm = "MRI",
+             test = "MRI",
+             outcome    = "coronary artery disease",
+             population = "adults with suspected CAD")
 )
 dev.off()
 ```
 
 ```{r save_sroc_pairwise}
-# Per-arm SROC (separate panels, saved side by side -- matches the
-# layout of Cochrane Handbook Figure 10.4.a).  `.e` is the intervention
-# arm (CCP2) and `.c` is the control arm (CCP1).  Beneath the panels a
+# Per-arm SROC (separate panels, saved side by side).  `.e` is the index
+# arm (CT) and `.c` is the comparator arm (MRI).  Beneath the panels a
 # Cochrane-style table reports per-arm Sens/Spec/AUC with 95% CIs, the
 # absolute differences (.e - .c), and p-values:
 #   * Sens/Spec p-values come from the LR tests (Cochrane Appendix 12,
@@ -82,10 +86,10 @@ dev.off()
 #     omitted and the in-panel AUC summary loses its CI).
 png("sroc_pairwise.png", width = 1800, height = 1000, res = 150)
 g <- dta_sroc_pair(res,
-                   arm.e  = "CCP2", test.e = "anti-CCP2",
-                   arm.c  = "CCP1", test.c = "anti-CCP1",
-                   outcome    = "rheumatoid arthritis",
-                   population = "adults",
+                   arm.e  = "CT",  test.e = "CT",
+                   arm.c  = "MRI", test.c = "MRI",
+                   outcome    = "coronary artery disease",
+                   population = "adults with suspected CAD",
                    auc_ic     = TRUE,
                    B          = 2000)
 grid::grid.draw(g)

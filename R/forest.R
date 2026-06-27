@@ -41,10 +41,27 @@
 #'   the arm in `fit$arms` to plot (e.g. `"CCP1"`).  Ignored otherwise.
 #' @param conf   Confidence level (default 0.95).
 #' @param digits Numeric display digits for the value columns (default 2).
+#' @param just   Horizontal justification of the numeric value columns
+#'   (Sens/Spec "est (lci-uci)" and their headers): `"center"` (default),
+#'   `"left"`, or `"right"`. Centring places each value in the middle of
+#'   its own column.
+#' @param title  Optional plot title, rendered left-aligned above the plot.
+#' @param legend Optional legend text shown left-aligned below the plot.
+#'   A character vector is rendered one line per element (similar to an
+#'   "add row" of free text).
 #'
 #' @return A gtable object drawn on the current device.
+#' @examples
+#' data(anti_ccp2)
+#' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
+#' dta_forest(fit)
 #' @export
-dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2) {
+dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2,
+                       just = c("center", "left", "right"),
+                       title = NULL, legend = NULL) {
+  just     <- match.arg(just)
+  val_x    <- switch(just, center = 0.5, left = 0.05, right = 0.95)
+  val_hjust<- switch(just, center = 0.5, left = 0,    right = 1)
   if (inherits(fit, "dta_pairwise_result")) {
     if (is.null(arm))
       stop("`fit` is a dta_pairwise_result; pass `arm = \"<test-name>\"` ",
@@ -136,12 +153,12 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2) {
   se_df$face    <- ifelse(se_df$study == "Summary", "bold", "plain")
   sp_df$face    <- ifelse(sp_df$study == "Summary", "bold", "plain")
 
-  # y range: a tight slot below the summary row holds the I^2 annotation
-  # (ypos = 0.4); the panel bottom (ylim_full[1] = 0) is just below that
-  # so the visible x-axis on the CI panels sits close to the diamond.
+  # y range: the I^2 annotation gets its own full row one unit below the
+  # summary (ypos = 0); the panel bottom (ylim_full[1] = -0.5) sits below
+  # that so the visible x-axis on the CI panels clears the I^2 row.
   header_y  <- summary_idx + 1
-  i2_y      <- 0.4
-  ylim_full <- c(0.05, header_y + 0.5)
+  i2_y      <- 0
+  ylim_full <- c(-0.5, header_y + 0.5)
 
   # Zebra shading: stripe every other study row; never stripe the summary
   # or the header.
@@ -170,7 +187,7 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2) {
   } else {
     i2_biv_text <- i2_sens_text <- i2_spec_text <- "I²: NA"
   }
-  i2_size <- 2.6
+  i2_size <- 3.0  # standard cell font, own row (matches cell_size)
 
   # Shared geometry: every panel reserves identical bottom space for the
   # x-axis ink (line/ticks/text). Non-CI panels render that ink with NA
@@ -248,23 +265,23 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2) {
                       fontface = "bold", size = hdr_size) +
     ggplot2::annotate("text", x = x_studlab, y = i2_y,
                       label = i2_biv_text, hjust = 0,
-                      fontface = "bold", size = i2_size) +
+                      size = i2_size) +
     ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
     ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
     base_theme + invisible_axis_theme
 
   # ----- Sens / Spec value text panels --------------------------------------
-  text_value_panel <- function(df, title, i2_label) {
+  text_value_panel <- function(df, col_title, i2_label) {
     ggplot2::ggplot(df, ggplot2::aes(y = ypos)) +
       zebra_layer() +
       ggplot2::geom_text(ggplot2::aes(label = txt, fontface = face),
-                         x = 0.05, hjust = 0, size = cell_size) +
-      ggplot2::annotate("text", x = 0.05, y = header_y,
-                        label = title, hjust = 0,
+                         x = val_x, hjust = val_hjust, size = cell_size) +
+      ggplot2::annotate("text", x = val_x, y = header_y,
+                        label = col_title, hjust = val_hjust,
                         fontface = "bold", size = hdr_size) +
-      ggplot2::annotate("text", x = 0.05, y = i2_y,
-                        label = i2_label, hjust = 0,
-                        fontface = "bold", size = i2_size) +
+      ggplot2::annotate("text", x = val_x, y = i2_y,
+                        label = i2_label, hjust = val_hjust,
+                        size = i2_size) +
       ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
       ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
       base_theme + invisible_axis_theme
@@ -312,17 +329,52 @@ dta_forest <- function(fit, arm = NULL, conf = 0.95, digits = 2) {
   content_h     <- grid::unit(ylim_extent * row_in, "inches") +
                    grid::unit(axis_pad_in, "inches")
 
-  g <- gridExtra::arrangeGrob(
+  main <- gridExtra::arrangeGrob(
     p_labels, p_se, p_se_txt, p_sp, p_sp_txt,
     ncol = 5,
     widths = c(3.0, 1.8, 1.6, 1.8, 1.6),
     padding = grid::unit(0, "line")
   )
 
+  # Stack optional left-aligned title (above) and legend (below) with the
+  # main five-panel grob in a single column. Each band gets a fixed height
+  # in points so the overall viewport height stays deterministic.
+  grobs   <- list(main)
+  heights <- list(content_h)
+
+  if (!is.null(title)) {
+    title_fontsize <- 12
+    title_grob <- grid::textGrob(
+      title, x = grid::unit(2, "pt"), hjust = 0,
+      gp = grid::gpar(fontface = "bold", fontsize = title_fontsize)
+    )
+    grobs   <- c(list(title_grob), grobs)
+    heights <- c(list(grid::unit(1.8 * title_fontsize, "points")), heights)
+  }
+
+  if (!is.null(legend)) {
+    leg_txt      <- paste(legend, collapse = "\n")
+    n_lines      <- length(strsplit(leg_txt, "\n", fixed = TRUE)[[1]])
+    leg_fontsize <- 9
+    legend_grob  <- grid::textGrob(
+      leg_txt, x = grid::unit(2, "pt"), y = grid::unit(1, "npc"),
+      hjust = 0, vjust = 1,
+      gp = grid::gpar(fontsize = leg_fontsize, lineheight = 1.2)
+    )
+    grobs   <- c(grobs, list(legend_grob))
+    heights <- c(heights,
+                 list(grid::unit(1.3 * leg_fontsize * n_lines + 6, "points")))
+  }
+
+  heights_vec <- do.call(grid::unit.c, heights)
+  total_h     <- Reduce(`+`, heights)
+
+  g <- gridExtra::arrangeGrob(grobs = grobs, ncol = 1, heights = heights_vec)
+
   grid::grid.newpage()
   grid::pushViewport(grid::viewport(
     y = grid::unit(1, "npc"), just = "top",
-    height = content_h, width = grid::unit(1, "npc")
+    height = total_h, width = grid::unit(1, "npc")
   ))
   grid::grid.draw(g)
   grid::popViewport()

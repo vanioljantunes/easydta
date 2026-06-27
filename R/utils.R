@@ -79,21 +79,28 @@
 
 # -- Random-effect VCV extractor --------------------------------------------
 #
-# Returns the 2x2 between-study covariance matrix Psi for (logit Se, logit Sp)
-# from a glmer fit.
-.random_vcv <- function(fit) {
-  vc <- lme4::VarCorr(fit)
-  if (length(vc) != 1L) {
-    stop("Expected a single random-effect grouping factor; got ",
-         length(vc), ".")
+# Returns the 2x2 between-study covariance matrix Psi for (logit Se, logit Sp).
+# For an equal-variance fit (single shared RE block, model B) this is one 2x2
+# matrix.  For an unequal-variance fit (two per-test RE blocks, model E) it is a
+# named list of two 2x2 matrices, keyed by the test `levels` when supplied.
+.random_vcv <- function(fit, levels = NULL) {
+  clean <- function(Psi) {
+    dim_ok <- attr(Psi, "dim")
+    dn_ok  <- attr(Psi, "dimnames")
+    Psi <- unclass(Psi)
+    attributes(Psi) <- list(dim = dim_ok, dimnames = dn_ok)
+    Psi
   }
-  Psi <- vc[[1]]
-  # Strip attributes that print.VarCorr attaches
-  dim_ok <- attr(Psi, "dim")
-  dn_ok  <- attr(Psi, "dimnames")
-  Psi <- unclass(Psi)
-  attributes(Psi) <- list(dim = dim_ok, dimnames = dn_ok)
-  Psi
+  vc <- lme4::VarCorr(fit)
+  if (length(vc) == 1L) {
+    return(clean(vc[[1]]))
+  }
+  # Unequal-variance (model E): one block per test.
+  blocks <- lapply(vc, clean)
+  if (!is.null(levels) && length(levels) == length(blocks)) {
+    names(blocks) <- levels
+  }
+  blocks
 }
 
 # -- Fixed-effect extractor (lsens, lspec, SEs) for single-test fits --------

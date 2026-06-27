@@ -3,38 +3,50 @@
 \docType{data}
 \name{anti_ccp}
 \alias{anti_ccp}
-\title{Anti-CCP antibody for diagnosing rheumatoid arthritis}
+\alias{anti_ccp1}
+\alias{anti_ccp2}
+\title{Anti-CCP antibody for diagnosing rheumatoid arthritis (single-arm subsets)}
 \format{
-A data frame with 37 rows and 6 variables:
+Data frames with one row per study and 6 variables:
 \describe{
-  \item{studlab}{character. Study label (first author and year).}
-  \item{TP}{integer. True positives.}
-  \item{FP}{integer. False positives.}
-  \item{FN}{integer. False negatives.}
-  \item{TN}{integer. True negatives.}
-  \item{generation}{factor with levels \code{"CCP1"} and \code{"CCP2"}.
-    Assay generation, used as the covariate in pairwise meta-regression.}
+\item{studlab}{character. Study label (first author and year).}
+\item{TP}{integer. True positives.}
+\item{FP}{integer. False positives.}
+\item{FN}{integer. False negatives.}
+\item{TN}{integer. True negatives.}
+\item{test}{factor with levels \code{"CCP1"} and \code{"CCP2"} (constant
+within each subset; kept so the two can be row-bound into a covariate
+comparison via \code{\link[=dta_compare_tests]{dta_compare_tests()}}).}
 }
+\code{anti_ccp1} has 8 studies; \code{anti_ccp2} has 29.
 }
 \source{
 Nishimura K, Sugiyama D, Kogata Y, et al. Meta-analysis: diagnostic
-  accuracy of anti-cyclic citrullinated peptide antibody and rheumatoid
-  factor for rheumatoid arthritis. Ann Intern Med. 2007;146(11):797-808.
-  Reproduced via the Cochrane Handbook for DTA Reviews v2.0 (2023),
-  Chapter 10 Supplementary Material 1.
+accuracy of anti-cyclic citrullinated peptide antibody and rheumatoid
+factor for rheumatoid arthritis. Ann Intern Med. 2007;146(11):797-808.
+Reproduced via the Cochrane Handbook for DTA Reviews v2.0 (2023),
+Chapter 10 Supplementary Material 1.
 }
 \usage{
-anti_ccp
+anti_ccp1
+
+anti_ccp2
 }
 \description{
 Diagnostic test accuracy data for anti-cyclic citrullinated peptide (anti-CCP)
-antibody testing for rheumatoid arthritis, including both first-generation
-(CCP1) and second-generation (CCP2) assays. A canonical example dataset used
-throughout the Cochrane Handbook for DTA Reviews.
+antibody testing for rheumatoid arthritis, split by assay generation into two
+single-arm datasets: \code{anti_ccp1} (first-generation, CCP1) and \code{anti_ccp2}
+(second-generation, CCP2).  Each study used exactly one assay generation, so
+the two subsets are disjoint at the study level (a between-study design).
+}
+\details{
+Distributed as \code{inst/extdata/anti_ccp.xlsx}, one sheet per arm
+(\code{CCP1}, \code{CCP2}).  Each subset suits a single-arm fit via
+\code{\link[=dta_fit_single]{dta_fit_single()}}; \code{rbind(anti_ccp1, anti_ccp2)} reconstructs the full
+covariate dataset.
 }
 \examples{
-data(anti_ccp)
-head(anti_ccp)
-table(anti_ccp$generation)
+data(anti_ccp2)
+head(anti_ccp2)
 }
 \keyword{datasets}

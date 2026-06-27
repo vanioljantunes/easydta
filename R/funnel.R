@@ -45,6 +45,11 @@
 #'   `grid::grid.draw()` when sent to a graphics device.  The Deeks
 #'   regression result is on `attr(., "deeks")` and the per-study data
 #'   on `attr(., "study_data")`.
+#' @examples
+#' data(anti_ccp2)
+#' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
+#' dta_funnel(fit, test = "anti-CCP2",
+#'            outcome = "rheumatoid arthritis", population = "adults")
 #' @export
 dta_funnel <- function(fit,
                        arm = NULL,
