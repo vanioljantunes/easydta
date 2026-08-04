@@ -12,6 +12,10 @@ dta_sroc(
   ci = TRUE,
   pred = TRUE,
   labels = FALSE,
+  group = NULL,
+  group.suffix = " studies",
+  shapes = c(1, 0, 5, 6, 4),
+  title.size = 11,
   auc = TRUE,
   auc_ci = TRUE,
   B = 2000,
@@ -40,6 +44,21 @@ as a red dotted loop to distinguish it from the dashed CI region).}
 (default FALSE).  Labels are drawn on top of the panel and are allowed
 to overlap each other and the sROC curve -- they never reposition the
 underlying study points.}
+
+\item{group}{Optional grouping of the study points, as a vector named
+by study label (or an unnamed vector in study order).  Each level gets its
+own plot symbol and its own legend row.  \code{NA} entries keep the default
+triangle.  Default \code{NULL} (all studies drawn alike).}
+
+\item{group.suffix}{Text appended to each group level in the legend
+(default \code{" studies"}, so \code{"curvilinear"} reads \code{"curvilinear studies"}).}
+
+\item{shapes}{Plot symbols used for the \code{group} levels, in order
+(default open circle, open square, open diamond, open triangle-down,
+cross).}
+
+\item{title.size}{Font size of the two-line plot title (default 11;
+\code{dta_sroc_pair()} drops it to 10 for the half-width panels).}
 
 \item{auc}{Compute AUC and attach as attribute?  (default TRUE)}
 

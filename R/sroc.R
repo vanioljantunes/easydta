@@ -37,6 +37,17 @@
 #'   (default FALSE).  Labels are drawn on top of the panel and are allowed
 #'   to overlap each other and the sROC curve -- they never reposition the
 #'   underlying study points.
+#' @param group       Optional grouping of the study points, as a vector named
+#'   by study label (or an unnamed vector in study order).  Each level gets its
+#'   own plot symbol and its own legend row.  `NA` entries keep the default
+#'   triangle.  Default `NULL` (all studies drawn alike).
+#' @param group.suffix Text appended to each group level in the legend
+#'   (default `" studies"`, so `"curvilinear"` reads `"curvilinear studies"`).
+#' @param shapes      Plot symbols used for the `group` levels, in order
+#'   (default open circle, open square, open diamond, open triangle-down,
+#'   cross).
+#' @param title.size  Font size of the two-line plot title (default 11;
+#'   `dta_sroc_pair()` drops it to 10 for the half-width panels).
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
 #' @param auc_ci      Compute a CI for the AUC (parametric MVN bootstrap)?
 #'   (default TRUE). If FALSE only the trapezoidal point estimate is returned.
@@ -60,6 +71,10 @@ dta_sroc <- function(fit,
                      ci    = TRUE,
                      pred  = TRUE,
                      labels = FALSE,
+                     group  = NULL,
+                     group.suffix = " studies",
+                     shapes = c(1, 0, 5, 6, 4),
+                     title.size = 11,
                      auc   = TRUE,
                      auc_ci = TRUE,
                      B     = 2000,
@@ -94,6 +109,27 @@ dta_sroc <- function(fit,
                stringsAsFactors = FALSE)
   }))
   rownames(pts) <- NULL
+
+  # Optional grouping of the study points (e.g. measurement plane): one plot
+  # symbol and one legend row per level.  `group` is a vector named by study
+  # label; unnamed vectors are matched positionally to `pts$studlab`.
+  if (is.null(group)) {
+    pts$grp   <- NA_character_
+    grp_lv    <- character(0)
+    grp_shape <- integer(0)
+  } else {
+    g <- if (!is.null(names(group))) as.character(group[pts$studlab]) else as.character(group)
+    if (length(g) != nrow(pts))
+      stop("`group` must have one entry per study in the fit.")
+    pts$grp   <- g
+    grp_lv    <- sort(unique(g[!is.na(g)]))
+    # Named `shapes` pin a symbol to a level; unnamed ones are taken in order.
+    grp_shape <- if (!is.null(names(shapes))) shapes[grp_lv] else shapes[seq_along(grp_lv)]
+    if (anyNA(grp_shape))
+      stop("`shapes` has no symbol for: ",
+           paste(grp_lv[is.na(grp_shape)], collapse = ", "))
+    names(grp_shape) <- grp_lv
+  }
 
   centre <- c(f$lsens, f$lspec)
   cr_df <- if (ci)   .logit_ellipse(centre, f$vcov_fixed, conf) else NULL
@@ -191,17 +227,41 @@ dta_sroc <- function(fit,
   x_label_anchor <- bx$xmin + pad_x
   x_value_anchor <- x_label_anchor + label_w + gap_lv
 
-  # Bottom-left legend box (5 rows: study / sROC / CI / pred / summary).
-  lg <- list(xmin = 0.00, xmax = 0.30,
-             ymin = 0.00, ymax = box_h)
-  lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = 5)
-  lg_x_sym   <- lg$xmin + 0.03
-  lg_x_label <- lg$xmin + 0.07
-  legend_text <- c("Study estimates", "sROC curve",
-                   "95% CI region", "95% prediction region",
-                   "Summary point")
+  # Bottom-left legend box: one row per study symbol (one per `group` level,
+  # or a single "Study estimates" row when ungrouped), then sROC / CI / pred /
+  # summary.  The box grows with the number of rows and the longest label.
+  if (length(grp_lv)) {
+    pt_pch  <- unname(grp_shape)
+    pt_text <- paste0(grp_lv, group.suffix)
+    if (any(is.na(pts$grp))) {
+      pt_pch  <- c(pt_pch, 2)
+      pt_text <- c(pt_text, "Study estimates")
+    }
+  } else {
+    pt_pch  <- 2
+    pt_text <- "Study estimates"
+  }
+  n_pt <- length(pt_pch)
 
-  title_text <- sprintf("sROC of %s to predict %s in %s",
+  legend_text <- c(pt_text, "sROC curve", "95% CI region",
+                   "95% prediction region", "Summary point")
+  lg_pch <- c(pt_pch, NA, NA, NA, 16)
+  lg_lty <- c(rep(NA, n_pt), "solid", "dashed", "dotted", NA)
+  lg_col <- c(rep("black", n_pt), "black", "black", "red", "black")
+  lg_lwd <- c(rep(NA, n_pt), 0.6, 0.5, 0.6, NA)
+  lg_size <- c(rep(2.4, n_pt), NA, NA, NA, 3)
+  n_lg <- length(legend_text)
+
+  lg_x_sym   <- 0.03
+  lg_x_label <- 0.07
+  lg <- list(xmin = 0.00,
+             xmax = max(0.30, lg_x_label + max(nchar(legend_text)) * char_w + 0.012),
+             ymin = 0.00,
+             ymax = max(box_h, 0.055 + (n_lg - 1) * row_step))
+  lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = n_lg)
+
+  # Two lines: the title has to fit inside a half-width panel in dta_sroc_pair.
+  title_text <- sprintf("sROC of %s\nto predict %s in %s",
                         test.label, outcome, population)
 
   # ---- Build plot ----------------------------------------------------------
@@ -228,13 +288,20 @@ dta_sroc <- function(fit,
                        colour = "black",
                        linetype = "solid",
                        linewidth = 0.6) +
-    ggplot2::geom_point(data = pts,
+    ggplot2::geom_point(data = if (length(grp_lv)) pts[is.na(pts$grp), ] else pts,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 2, size = 2.4, colour = "black",
                         show.legend = FALSE) +
     ggplot2::geom_point(data = summary_pt,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 16, size = 3.5, colour = "black")
+
+  for (lv in grp_lv) {
+    p <- p + ggplot2::geom_point(data = pts[!is.na(pts$grp) & pts$grp == lv, ],
+                                 ggplot2::aes(x = fpr, y = tpr),
+                                 shape = grp_shape[[lv]], size = 2.4,
+                                 colour = "black", show.legend = FALSE)
+  }
 
   if (isTRUE(labels) && nrow(pts) > 0) {
     pts_lab <- pts
@@ -271,33 +338,29 @@ dta_sroc <- function(fit,
                       label = rows_value,
                       fontface = "plain", hjust = 0, size = text_size)
 
-  # Bottom-left legend box (5 rows: study / sROC / CI / pred / summary).
   seg_half <- 0.018
   p <- p +
     ggplot2::annotate("rect",
                       xmin = lg$xmin, xmax = lg$xmax,
                       ymin = lg$ymin, ymax = lg$ymax,
                       fill = "white", colour = "black",
-                      linewidth = 0.4) +
-    ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[1],
-                      shape = 2, size = 2.4, colour = "black") +
-    ggplot2::annotate("segment",
-                      x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
-                      y = lg_rows[2], yend = lg_rows[2],
-                      colour = "black", linetype = "solid",
-                      linewidth = 0.6) +
-    ggplot2::annotate("segment",
-                      x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
-                      y = lg_rows[3], yend = lg_rows[3],
-                      colour = "black", linetype = "dashed",
-                      linewidth = 0.5) +
-    ggplot2::annotate("segment",
-                      x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
-                      y = lg_rows[4], yend = lg_rows[4],
-                      colour = "red", linetype = "dotted",
-                      linewidth = 0.6) +
-    ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[5],
-                      shape = 16, size = 3, colour = "black") +
+                      linewidth = 0.4)
+
+  for (i in seq_len(n_lg)) {
+    p <- if (!is.na(lg_pch[i])) {
+      p + ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[i],
+                            shape = lg_pch[i], size = lg_size[i],
+                            colour = lg_col[i])
+    } else {
+      p + ggplot2::annotate("segment",
+                            x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
+                            y = lg_rows[i], yend = lg_rows[i],
+                            colour = lg_col[i], linetype = lg_lty[i],
+                            linewidth = lg_lwd[i])
+    }
+  }
+
+  p <- p +
     ggplot2::annotate("text",
                       x = lg_x_label, y = lg_rows,
                       label = legend_text,
@@ -321,7 +384,8 @@ dta_sroc <- function(fit,
                    legend.position  = "none",
                    plot.title       = ggplot2::element_text(face = "bold",
                                                             hjust = 0.5,
-                                                            size = 13))
+                                                            lineheight = 1.15,
+                                                            size = title.size))
 
   if (auc) {
     attr(p, "AUC") <- auc_val
@@ -434,6 +498,9 @@ dta_sroc_pair <- function(x,
   panel_args <- list(...)
   panel_args$auc    <- isTRUE(auc_ic)
   panel_args$auc_ci <- isTRUE(auc_ic)
+  # Each panel is half the device width, so the two-line title is set smaller
+  # here than in a standalone dta_sroc().
+  if (is.null(panel_args$title.size)) panel_args$title.size <- 10
 
   p_e <- do.call(dta_sroc, c(list(fit_e,
                                   test.label = test.label.e,
@@ -620,9 +687,9 @@ print.dta_sroc_pair <- function(x, ...) {
     ))
   }
 
-  names(out) <- c("Measure",
-                  sprintf("Diff (%s - %s)", test.label.e, test.label.c),
-                  "P-value")
+  # The arm names already head the two panels above the table, so the
+  # difference column stays short: "Diff" alone, not "Diff (A - B)".
+  names(out) <- c("Measure", "Diff", "P-value")
   out
 }
 
