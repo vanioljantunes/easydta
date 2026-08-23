@@ -71,9 +71,13 @@
 #' @param digits  Display digits for the value columns (default 2).
 #' @param just    Horizontal justification of the numeric value columns
 #'   (default `"left"`, which keeps each column tight against the one before it).
-#' @param widths Relative widths of the five columns: study labels, arm e,
-#'   arm c, the difference plot, and the difference values. Defaults to
-#'   `c(1.9, 1.7, 1.7, 1.9, 1.55)`.
+#' @param counts Draw the two count columns of each arm (`TP` and `FN` in the
+#'   sensitivity block, `TN` and `FP` in the specificity block). Default `TRUE`.
+#' @param widths Relative widths of the eleven columns: study labels, then for
+#'   each arm its two counts, its estimate and its confidence interval, then the
+#'   difference plot and the difference values. Defaults to
+#'   `c(1.6, 0.4, 0.4, 0.5, 1.15, 0.4, 0.4, 0.5, 1.15, 1.8, 1.4)`. When
+#'   `counts = FALSE` the four count columns are dropped.
 #' @param title   Optional plot title, rendered left-aligned above the blocks.
 #' @param legend  Optional legend text shown left-aligned below the blocks.
 #'   When `NULL` a one-line note on the interval method is written for you;
@@ -94,7 +98,9 @@ dta_forest_pair <- function(x,
                             which = c("sens", "spec"),
                             conf = 0.95, digits = 2,
                             just = c("left", "center", "right"),
-                            widths = c(1.9, 1.7, 1.7, 1.9, 1.55),
+                            counts = TRUE,
+                            widths = c(1.6, 0.4, 0.4, 0.5, 1.15,
+                                       0.4, 0.4, 0.5, 1.15, 1.8, 1.4),
                             title = NULL, legend = NULL) {
 
   if (!inherits(x, c("dta_pairwise_result", "dta_compare")))
@@ -102,9 +108,10 @@ dta_forest_pair <- function(x,
 
   which     <- match.arg(which, c("sens", "spec"), several.ok = TRUE)
   just      <- match.arg(just)
-  if (length(widths) != 5 || !is.numeric(widths) || any(!is.finite(widths)) ||
+  if (length(widths) != 11 || !is.numeric(widths) || any(!is.finite(widths)) ||
       any(widths <= 0))
-    stop("`widths` must be five positive numbers.")
+    stop("`widths` must be eleven positive numbers.")
+  keep <- if (counts) seq_len(11) else c(1, 4, 5, 8, 9, 10, 11)
   val_x     <- switch(just, center = 0.5, left = 0.02, right = 0.98)
   val_hjust <- switch(just, center = 0.5, left = 0,    right = 1)
 
@@ -131,6 +138,11 @@ dta_forest_pair <- function(x,
     f <- sprintf("%%.%df (%%.%df to %%.%df)", digits, digits, digits)
     ifelse(is.na(e), "", sprintf(f, e, l, u))
   }
+  fmt_est <- function(e) ifelse(is.na(e), "", sprintf(sprintf("%%.%df", digits), e))
+  fmt_ci  <- function(l, u) {
+    f <- sprintf("(%%.%df to %%.%df)", digits, digits)
+    ifelse(is.na(l), "", sprintf(f, l, u))
+  }
   fmt_p <- function(p) {
     if (length(p) == 0 || is.na(p)) "p = NA"
     else if (p < 0.001) "p < 0.001"
@@ -138,6 +150,8 @@ dta_forest_pair <- function(x,
   }
 
   measure_title <- c(sens = "Sensitivity", spec = "Specificity")
+  measure_short <- c(sens = "Sens", spec = "Spec")
+  count_titles  <- list(sens = c("TP", "FN"), spec = c("TN", "FP"))
   diff_row      <- c(sens = "Absolute diff Sens", spec = "Absolute diff Spec")
   lr_row        <- c(sens = 2L, spec = 3L)
 
@@ -189,14 +203,19 @@ dta_forest_pair <- function(x,
 
     d <- data.frame(idx = seq_len(nrow_d), study = studs,
                     est = NA_real_, lci = NA_real_, uci = NA_real_,
-                    txt_e = "", txt_c = "",
+                    est_e = "", ci_e = "", est_c = "", ci_c = "",
+                    n1_e = "", n2_e = "", n1_c = "", n2_c = "",
                     stringsAsFactors = FALSE)
 
     for (i in seq_len(nrow_d)) {
       ci_e <- .wilson_ci(ce$k[i], ce$n[i], conf)
       ci_c <- .wilson_ci(cc$k[i], cc$n[i], conf)
-      d$txt_e[i] <- fmt(ce$k[i] / ce$n[i], ci_e[1], ci_e[2])
-      d$txt_c[i] <- fmt(cc$k[i] / cc$n[i], ci_c[1], ci_c[2])
+      # k is TP in the sensitivity block and TN in the specificity block, so
+      # n - k is the complementary count (FN or FP).
+      d$n1_e[i] <- format(ce$k[i]);          d$n2_e[i] <- format(ce$n[i] - ce$k[i])
+      d$n1_c[i] <- format(cc$k[i]);          d$n2_c[i] <- format(cc$n[i] - cc$k[i])
+      d$est_e[i] <- fmt_est(ce$k[i] / ce$n[i]); d$ci_e[i] <- fmt_ci(ci_e[1], ci_e[2])
+      d$est_c[i] <- fmt_est(cc$k[i] / cc$n[i]); d$ci_c[i] <- fmt_ci(ci_c[1], ci_c[2])
       dd <- .newcombe_diff(ce$k[i], ce$n[i], cc$k[i], cc$n[i], conf)
       d[i, c("est", "lci", "uci")] <- dd
     }
@@ -213,8 +232,11 @@ dta_forest_pair <- function(x,
     dr  <- dif[dif$measure == diff_row[[m]], ][1, ]
     d <- rbind(d, data.frame(idx = summary_idx, study = "Summary",
                              est = dr$estimate, lci = dr$lci, uci = dr$uci,
-                             txt_e = fmt(pe["estimate"], pe["lci"], pe["uci"]),
-                             txt_c = fmt(pc["estimate"], pc["lci"], pc["uci"]),
+                             est_e = fmt_est(pe["estimate"]),
+                             ci_e  = fmt_ci(pe["lci"], pe["uci"]),
+                             est_c = fmt_est(pc["estimate"]),
+                             ci_c  = fmt_ci(pc["lci"], pc["uci"]),
+                             n1_e = "", n2_e = "", n1_c = "", n2_c = "",
                              stringsAsFactors = FALSE))
 
     d$ypos    <- (summary_idx + 1) - d$idx
@@ -245,15 +267,15 @@ dta_forest_pair <- function(x,
       ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
       base_theme + invisible_axis_theme
 
-    text_panel <- function(lab_col, col_title) {
+    text_panel <- function(lab_col, col_title, x = val_x, hjust = val_hjust) {
       dd <- d
       dd$val <- dd[[lab_col]]
       ggplot2::ggplot(dd, ggplot2::aes(y = ypos)) +
         zebra +
         ggplot2::geom_text(ggplot2::aes(label = val, fontface = face),
-                           x = val_x, hjust = val_hjust, size = cell_size) +
-        ggplot2::annotate("text", x = val_x, y = header_y, label = col_title,
-                          hjust = val_hjust, fontface = "bold",
+                           x = x, hjust = hjust, size = cell_size) +
+        ggplot2::annotate("text", x = x, y = header_y, label = col_title,
+                          hjust = hjust, fontface = "bold",
                           size = hdr_size) +
         ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
         base_theme + invisible_axis_theme
@@ -279,17 +301,45 @@ dta_forest_pair <- function(x,
       ggplot2::coord_cartesian(ylim = ylim_full) +
       base_theme + visible_axis_theme
 
-    body <- gridExtra::arrangeGrob(
+    ct  <- count_titles[[m]]
+    est_title <- measure_short[[m]]
+
+    # Single-line headers: a wrapped header overlaps the first study row,
+    # because row height is fixed in inches while the font is not.
+    cols <- list(
       p_labels,
-      # Single-line headers: a wrapped header overlaps the first study row,
-      # because row height is fixed in inches while the font is not.
-      text_panel("txt_e", paste0(test.label.e, " (95% CI)")),
-      text_panel("txt_c", paste0(test.label.c, " (95% CI)")),
+      text_panel("n1_e", ct[1], x = 0.5, hjust = 0.5),
+      text_panel("n2_e", ct[2], x = 0.5, hjust = 0.5),
+      text_panel("est_e", est_title, x = 0.5, hjust = 0.5),
+      text_panel("ci_e", paste0(100 * conf, "% CI")),
+      text_panel("n1_c", ct[1], x = 0.5, hjust = 0.5),
+      text_panel("n2_c", ct[2], x = 0.5, hjust = 0.5),
+      text_panel("est_c", est_title, x = 0.5, hjust = 0.5),
+      text_panel("ci_c", paste0(100 * conf, "% CI")),
       p_diff,
-      text_panel("txt_d", "Diff (95% CI)"),
-      ncol = 5,
-      widths = widths,
+      text_panel("txt_d", "Diff (95% CI)"))
+
+    w <- widths[keep]
+    body <- gridExtra::arrangeGrob(
+      grobs = cols[keep], ncol = length(keep),
+      widths = w,
       padding = grid::unit(0, "line"))
+
+    # Arm labels span their own block of columns, as in the intervention and
+    # control headers of a meta forest plot.
+    span_fontsize <- 10
+    span_e <- if (counts) sum(widths[2:5]) else sum(widths[c(4, 5)])
+    span_c <- if (counts) sum(widths[6:9]) else sum(widths[c(8, 9)])
+    arm_label <- function(lab)
+      grid::textGrob(lab, gp = grid::gpar(fontface = "bold",
+                                          fontsize = span_fontsize))
+    spanner <- gridExtra::arrangeGrob(
+      grobs = list(grid::nullGrob(), arm_label(test.label.e),
+                   arm_label(test.label.c), grid::nullGrob(),
+                   grid::nullGrob()),
+      ncol = 5,
+      widths = c(widths[1], span_e, span_c, widths[10], widths[11]))
+    span_h <- grid::unit(1.5 * span_fontsize, "points")
 
     m_fontsize <- 11
     m_grob <- grid::textGrob(measure_title[[m]],
@@ -300,8 +350,8 @@ dta_forest_pair <- function(x,
     body_h <- grid::unit((ylim_full[2] - ylim_full[1]) * row_in, "inches") +
               grid::unit(axis_pad_in, "inches")
 
-    blocks  <- c(blocks,  list(m_grob, body))
-    heights <- c(heights, list(m_h,    body_h))
+    blocks  <- c(blocks,  list(m_grob, spanner, body))
+    heights <- c(heights, list(m_h,    span_h,  body_h))
   }
 
   if (is.null(legend))
@@ -313,7 +363,8 @@ dta_forest_pair <- function(x,
   grobs <- blocks
   if (!is.null(title)) {
     title_fontsize <- 12
-    grobs   <- c(list(grid::textGrob(title, x = grid::unit(2, "pt"), hjust = 0,
+    grobs   <- c(list(grid::textGrob(title, x = grid::unit(0.5, "npc"),
+                                     hjust = 0.5,
                                      gp = grid::gpar(fontface = "bold",
                                                      fontsize = title_fontsize))),
                  grobs)
