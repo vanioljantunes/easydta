@@ -70,7 +70,10 @@
 #' @param conf    Confidence level (default 0.95).
 #' @param digits  Display digits for the value columns (default 2).
 #' @param just    Horizontal justification of the numeric value columns
-#'   (default `"center"`).
+#'   (default `"left"`, which keeps each column tight against the one before it).
+#' @param widths Relative widths of the five columns: study labels, arm e,
+#'   arm c, the difference plot, and the difference values. Defaults to
+#'   `c(1.9, 1.7, 1.7, 1.9, 1.55)`.
 #' @param title   Optional plot title, rendered left-aligned above the blocks.
 #' @param legend  Optional legend text shown left-aligned below the blocks.
 #'   When `NULL` a one-line note on the interval method is written for you;
@@ -90,7 +93,8 @@ dta_forest_pair <- function(x,
                             test.label.e = NULL, test.label.c = NULL,
                             which = c("sens", "spec"),
                             conf = 0.95, digits = 2,
-                            just = c("center", "left", "right"),
+                            just = c("left", "center", "right"),
+                            widths = c(1.9, 1.7, 1.7, 1.9, 1.55),
                             title = NULL, legend = NULL) {
 
   if (!inherits(x, c("dta_pairwise_result", "dta_compare")))
@@ -98,7 +102,10 @@ dta_forest_pair <- function(x,
 
   which     <- match.arg(which, c("sens", "spec"), several.ok = TRUE)
   just      <- match.arg(just)
-  val_x     <- switch(just, center = 0.5, left = 0.05, right = 0.95)
+  if (length(widths) != 5 || !is.numeric(widths) || any(!is.finite(widths)) ||
+      any(widths <= 0))
+    stop("`widths` must be five positive numbers.")
+  val_x     <- switch(just, center = 0.5, left = 0.02, right = 0.98)
   val_hjust <- switch(just, center = 0.5, left = 0,    right = 1)
 
   if (is.null(arm.e)) arm.e <- x$labels$intervention
@@ -281,7 +288,7 @@ dta_forest_pair <- function(x,
       p_diff,
       text_panel("txt_d", "Diff (95% CI)"),
       ncol = 5,
-      widths = c(2.6, 2.1, 2.1, 2.4, 2.1),
+      widths = widths,
       padding = grid::unit(0, "line"))
 
     m_fontsize <- 11
