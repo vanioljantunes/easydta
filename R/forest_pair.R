@@ -331,7 +331,7 @@ dta_forest_pair <- function(x,
       text_panel("est_c", est_title, x = 0.5, hjust = 0.5),
       text_panel("ci_c", paste0(100 * conf, "% CI")),
       p_diff,
-      text_panel("txt_d", "Diff (95% CI)"))
+      text_panel("txt_d", "Effect Size (95% CI)"))
 
     w <- widths[keep]
     body <- gridExtra::arrangeGrob(
