@@ -52,6 +52,11 @@
 #'   is `NULL`.
 #' @param legend.pos  Where the symbol legend box sits: `"bottom"` (bottom
 #'   centre, the default), `"bottomleft"`, or `"topright"`.
+#' @param legend.style `"auto"` (the default) draws the compact borderless
+#'   coloured legend when `group` is given and the full boxed legend
+#'   otherwise; `"box"` forces the boxed legend (group rows included);
+#'   `"compact"` forces the compact group-only legend; `"none"` draws no
+#'   legend at all.
 #' @param title.size  Font size of the two-line plot title (default 11;
 #'   `dta_sroc_pair()` drops it to 10 for the half-width panels).
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
@@ -83,6 +88,7 @@ dta_sroc <- function(fit,
                      colors = c("#0072B2", "#D55E00", "#009E73",
                                 "#CC79A7", "#E69F00"),
                      legend.pos = c("bottom", "bottomleft", "topright"),
+                     legend.style = c("auto", "box", "compact", "none"),
                      title.size = 11,
                      auc   = TRUE,
                      auc_ci = TRUE,
@@ -91,7 +97,8 @@ dta_sroc <- function(fit,
                      n_grid = 200,
                      auc_override = NULL) {
   stopifnot(inherits(fit, "dta_single"))
-  legend.pos <- match.arg(legend.pos)
+  legend.pos   <- match.arg(legend.pos)
+  legend.style <- match.arg(legend.style)
   f <- .fixed_se_sp(fit$fit)
   Psi <- fit$Psi
   tau_sens <- sqrt(Psi[1, 1])
@@ -252,12 +259,12 @@ dta_sroc <- function(fit,
     pt_col  <- unname(grp_col)
     pt_text <- paste0(grp_lv, group.suffix)
     if (any(is.na(pts$grp))) {
-      pt_pch  <- c(pt_pch, 2)
+      pt_pch  <- c(pt_pch, 0)
       pt_col  <- c(pt_col, "black")
       pt_text <- c(pt_text, "Study estimates")
     }
   } else {
-    pt_pch  <- 2
+    pt_pch  <- 0
     pt_col  <- "black"
     pt_text <- "Study estimates"
   }
@@ -328,7 +335,7 @@ dta_sroc <- function(fit,
                        linewidth = 0.6) +
     ggplot2::geom_point(data = if (length(grp_lv)) pts[is.na(pts$grp), ] else pts,
                         ggplot2::aes(x = fpr, y = tpr),
-                        shape = 2, size = 2.4, colour = "black",
+                        shape = 0, size = 2.4, colour = "black",
                         show.legend = FALSE) +
     ggplot2::geom_point(data = summary_pt,
                         ggplot2::aes(x = fpr, y = tpr),
@@ -376,9 +383,13 @@ dta_sroc <- function(fit,
                       label = rows_value,
                       fontface = "plain", hjust = 0, size = text_size)
 
-  if (length(grp_lv)) {
-    # Grouped plots carry only the compact group legend: no box, coloured
-    # symbol plus coloured text, centred at the bottom of the panel.
+  use_compact <- legend.style == "compact" ||
+    (legend.style == "auto" && length(grp_lv) > 0)
+  if (legend.style == "none") {
+    # no legend: the summary box already explains the plot
+  } else if (use_compact && length(grp_lv)) {
+    # Compact group legend: no box, coloured symbol plus coloured text,
+    # centred at the bottom of the panel.
     lab_txt <- paste0(grp_lv, group.suffix)
     blk_w   <- 0.04 + max(nchar(lab_txt)) * char_w
     x0      <- 0.5 - blk_w / 2
@@ -491,8 +502,13 @@ dta_sroc <- function(fit,
 #'   2000); ignored when `auc_ic = FALSE`.
 #' @param conf      Confidence level (default 0.95).
 #' @param ncol      Number of columns for the SROC panel row (default 2).
+#' @param group.e,group.c Optional per-arm subgroup of the study points (a
+#'   vector named by study label, as in `dta_sroc()`'s `group`), so each
+#'   study symbol reflects a subgroup value (e.g. measurement plane) and the
+#'   legend explains it.  Default `NULL`.
 #' @param ...       Extra arguments forwarded to both `dta_sroc()` calls
-#'   (e.g. `labels`, `pred`).  `auc_ci` is set automatically from `auc_ic`
+#'   (e.g. `labels`, `pred`, `shapes`, `colors`, `legend.pos`,
+#'   `legend.style`).  `auc_ci` is set automatically from `auc_ic`
 #'   and should not be overridden.
 #'
 #' @return A `gtable` of class `"dta_sroc_pair"`; its `print()` method draws
@@ -519,6 +535,8 @@ dta_sroc_pair <- function(x,
                           B      = 2000,
                           conf   = 0.95,
                           ncol   = 2,
+                          group.e = NULL,
+                          group.c = NULL,
                           ...) {
   arms <- if (inherits(x, c("dta_pairwise_result", "dta_compare"))) {
     x$arms
@@ -560,12 +578,14 @@ dta_sroc_pair <- function(x,
                                   test.label = test.label.e,
                                   outcome    = outcome,
                                   population = population,
+                                  group      = group.e,
                                   auc_override = auc_pair$arm.e),
                              panel_args))
   p_c <- do.call(dta_sroc, c(list(fit_c,
                                   test.label = test.label.c,
                                   outcome    = outcome,
                                   population = population,
+                                  group      = group.c,
                                   auc_override = auc_pair$arm.c),
                              panel_args))
 
