@@ -243,13 +243,23 @@ dta_sroc <- function(fit,
   }
   n_pt <- length(pt_pch)
 
-  legend_text <- c(pt_text, "sROC curve", "95% CI region",
-                   "95% prediction region", "Summary point")
-  lg_pch <- c(pt_pch, NA, NA, NA, 16)
-  lg_lty <- c(rep(NA, n_pt), "solid", "dashed", "dotted", NA)
-  lg_col <- c(rep("black", n_pt), "black", "black", "red", "black")
-  lg_lwd <- c(rep(NA, n_pt), 0.6, 0.5, 0.6, NA)
-  lg_size <- c(rep(2.4, n_pt), NA, NA, NA, 3)
+  # The prediction-region row only appears when the region is drawn.
+  if (pred) {
+    legend_text <- c(pt_text, "sROC curve", "95% CI region",
+                     "95% prediction region", "Summary point")
+    lg_pch <- c(pt_pch, NA, NA, NA, 16)
+    lg_lty <- c(rep(NA, n_pt), "solid", "dashed", "dotted", NA)
+    lg_col <- c(rep("black", n_pt), "black", "black", "red", "black")
+    lg_lwd <- c(rep(NA, n_pt), 0.6, 0.5, 0.6, NA)
+    lg_size <- c(rep(2.4, n_pt), NA, NA, NA, 3)
+  } else {
+    legend_text <- c(pt_text, "sROC curve", "95% CI region", "Summary point")
+    lg_pch <- c(pt_pch, NA, NA, 16)
+    lg_lty <- c(rep(NA, n_pt), "solid", "dashed", NA)
+    lg_col <- c(rep("black", n_pt), "black", "black", "black")
+    lg_lwd <- c(rep(NA, n_pt), 0.6, 0.5, NA)
+    lg_size <- c(rep(2.4, n_pt), NA, NA, 3)
+  }
   n_lg <- length(legend_text)
 
   lg_x_sym   <- 0.03
@@ -539,8 +549,11 @@ dta_sroc_pair <- function(x,
       t = 1, b = nrow(tbl_grob), l = 1, r = ncol(tbl_grob),
       name = "container-border"
     )
-    g <- gridExtra::arrangeGrob(panels, tbl_grob,
-                                nrow = 2, heights = c(5, 1))
+    # Size the table row from the table itself so extra rows never clip.
+    tbl_h <- grid::grobHeight(tbl_grob) + grid::unit(40, "pt")
+    g <- gridExtra::arrangeGrob(panels, tbl_grob, nrow = 2,
+                                heights = grid::unit.c(
+                                  grid::unit(1, "npc") - tbl_h, tbl_h))
   } else {
     g <- panels
   }
@@ -604,7 +617,8 @@ print.dta_sroc_pair <- function(x, ...) {
 }
 
 # Build the differences table shown below dta_sroc_pair() panels.
-# Columns: Measure, <test.label.e>, <test.label.c>, Diff (.e - .c), P-value.
+# Columns: Measure, Effect Size (.e - .c), P-value; a final I2 row carries
+# the residual Cochran Q heterogeneity of the paired data.
 # Sens/Spec p-values come from x$compare$lr_tests (Cochrane LR tests).
 # Sens/Spec diff CIs come from x$compare$differences (delta method),
 # sign-flipped if the comparison was estimated as (.c - .e) by the
@@ -687,9 +701,40 @@ print.dta_sroc_pair <- function(x, ...) {
     ))
   }
 
+  # Residual Cochran Q across both arms: fixed-effect logit pooling per
+  # measure within each arm, so Q tests between-study heterogeneity beyond
+  # the test difference itself (df = sum of k - 1 over the four strata).
+  # I2 = (Q - df) / Q (Higgins 2003); the naive form, reported here because
+  # the paired table has no threshold axis to condition on.
+  q_stat <- 0; q_df <- 0
+  for (fit in list(fit_e, fit_c)) {
+    long <- fit$long
+    for (msr in c("sens", "spec")) {
+      r <- long[long[[msr]] == 1, , drop = FALSE]
+      k <- r$true; n <- r$n
+      cc <- k == 0 | k == n            # continuity correction on the boundary
+      k[cc] <- k[cc] + 0.5
+      n[cc] <- n[cc] + 1
+      th <- stats::qlogis(k / n)
+      w  <- k * (n - k) / n            # 1 / var(logit p)
+      th_bar <- sum(w * th) / sum(w)
+      q_stat <- q_stat + sum(w * (th - th_bar)^2)
+      q_df   <- q_df + (length(th) - 1)
+    }
+  }
+  i2  <- if (q_stat > 0) max(0, (q_stat - q_df) / q_stat) else NA_real_
+  p_q <- if (q_df > 0) stats::pchisq(q_stat, df = q_df, lower.tail = FALSE)
+         else NA_real_
+  out <- rbind(out, data.frame(
+    Measure = "I2",
+    Diff = if (is.na(i2)) "n/a" else sprintf("%.1f%%", 100 * i2),
+    P = fmt_p(p_q),
+    stringsAsFactors = FALSE
+  ))
+
   # The arm names already head the two panels above the table, so the
-  # difference column stays short: "Diff" alone, not "Diff (A - B)".
-  names(out) <- c("Measure", "Diff", "P-value")
+  # effect-size column stays short, without "(A - B)".
+  names(out) <- c("Measure", "Effect Size", "P-value")
   out
 }
 
