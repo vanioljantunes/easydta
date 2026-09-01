@@ -46,6 +46,12 @@
 #' @param shapes      Plot symbols used for the `group` levels, in order
 #'   (default open circle, open square, open diamond, open triangle-down,
 #'   cross).
+#' @param colors      Point colours for the `group` levels, in order or named
+#'   by level (like `shapes`).  Defaults to a colour-blind-safe palette so
+#'   grouped points differ by colour as well as symbol; ignored when `group`
+#'   is `NULL`.
+#' @param legend.pos  Where the symbol legend box sits: `"bottom"` (bottom
+#'   centre, the default), `"bottomleft"`, or `"topright"`.
 #' @param title.size  Font size of the two-line plot title (default 11;
 #'   `dta_sroc_pair()` drops it to 10 for the half-width panels).
 #' @param auc         Compute AUC and attach as attribute?  (default TRUE)
@@ -74,6 +80,9 @@ dta_sroc <- function(fit,
                      group  = NULL,
                      group.suffix = " studies",
                      shapes = c(1, 0, 5, 6, 4),
+                     colors = c("#0072B2", "#D55E00", "#009E73",
+                                "#CC79A7", "#E69F00"),
+                     legend.pos = c("bottom", "bottomleft", "topright"),
                      title.size = 11,
                      auc   = TRUE,
                      auc_ci = TRUE,
@@ -82,6 +91,7 @@ dta_sroc <- function(fit,
                      n_grid = 200,
                      auc_override = NULL) {
   stopifnot(inherits(fit, "dta_single"))
+  legend.pos <- match.arg(legend.pos)
   f <- .fixed_se_sp(fit$fit)
   Psi <- fit$Psi
   tau_sens <- sqrt(Psi[1, 1])
@@ -117,6 +127,7 @@ dta_sroc <- function(fit,
     pts$grp   <- NA_character_
     grp_lv    <- character(0)
     grp_shape <- integer(0)
+    grp_col   <- character(0)
   } else {
     g <- if (!is.null(names(group))) as.character(group[pts$studlab]) else as.character(group)
     if (length(g) != nrow(pts))
@@ -129,6 +140,12 @@ dta_sroc <- function(fit,
       stop("`shapes` has no symbol for: ",
            paste(grp_lv[is.na(grp_shape)], collapse = ", "))
     names(grp_shape) <- grp_lv
+    # Named `colors` pin a colour to a level; unnamed ones are taken in order.
+    grp_col <- if (!is.null(names(colors))) colors[grp_lv] else colors[seq_along(grp_lv)]
+    if (anyNA(grp_col))
+      stop("`colors` has no colour for: ",
+           paste(grp_lv[is.na(grp_col)], collapse = ", "))
+    names(grp_col) <- grp_lv
   }
 
   centre <- c(f$lsens, f$lspec)
@@ -232,13 +249,16 @@ dta_sroc <- function(fit,
   # summary.  The box grows with the number of rows and the longest label.
   if (length(grp_lv)) {
     pt_pch  <- unname(grp_shape)
+    pt_col  <- unname(grp_col)
     pt_text <- paste0(grp_lv, group.suffix)
     if (any(is.na(pts$grp))) {
       pt_pch  <- c(pt_pch, 2)
+      pt_col  <- c(pt_col, "black")
       pt_text <- c(pt_text, "Study estimates")
     }
   } else {
     pt_pch  <- 2
+    pt_col  <- "black"
     pt_text <- "Study estimates"
   }
   n_pt <- length(pt_pch)
@@ -249,25 +269,33 @@ dta_sroc <- function(fit,
                      "95% prediction region", "Summary point")
     lg_pch <- c(pt_pch, NA, NA, NA, 16)
     lg_lty <- c(rep(NA, n_pt), "solid", "dashed", "dotted", NA)
-    lg_col <- c(rep("black", n_pt), "black", "black", "red", "black")
+    lg_col <- c(pt_col, "black", "black", "red", "black")
     lg_lwd <- c(rep(NA, n_pt), 0.6, 0.5, 0.6, NA)
     lg_size <- c(rep(2.4, n_pt), NA, NA, NA, 3)
   } else {
     legend_text <- c(pt_text, "sROC curve", "95% CI region", "Summary point")
     lg_pch <- c(pt_pch, NA, NA, 16)
     lg_lty <- c(rep(NA, n_pt), "solid", "dashed", NA)
-    lg_col <- c(rep("black", n_pt), "black", "black", "black")
+    lg_col <- c(pt_col, "black", "black", "black")
     lg_lwd <- c(rep(NA, n_pt), 0.6, 0.5, NA)
     lg_size <- c(rep(2.4, n_pt), NA, NA, 3)
   }
   n_lg <- length(legend_text)
 
-  lg_x_sym   <- 0.03
-  lg_x_label <- 0.07
-  lg <- list(xmin = 0.00,
-             xmax = max(0.30, lg_x_label + max(nchar(legend_text)) * char_w + 0.012),
-             ymin = 0.00,
-             ymax = max(box_h, 0.055 + (n_lg - 1) * row_step))
+  # Legend box geometry, then anchored by `legend.pos`: away from the
+  # top-left cloud of study points, which the old bottom-left box could hide
+  # on high-specificity data.
+  lg_w <- max(0.30, 0.07 + max(nchar(legend_text)) * char_w + 0.012)
+  lg_h <- max(box_h, 0.055 + (n_lg - 1) * row_step)
+  lg <- switch(legend.pos,
+    bottomleft = list(xmin = 0.00,           xmax = lg_w,
+                      ymin = 0.00,           ymax = lg_h),
+    bottom     = list(xmin = (1 - lg_w) / 2, xmax = (1 + lg_w) / 2,
+                      ymin = 0.00,           ymax = lg_h),
+    topright   = list(xmin = 1 - lg_w,       xmax = 1.00,
+                      ymin = 1 - lg_h,       ymax = 1.00))
+  lg_x_sym   <- lg$xmin + 0.03
+  lg_x_label <- lg$xmin + 0.07
   lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = n_lg)
 
   # Two lines: the title has to fit inside a half-width panel in dta_sroc_pair.
@@ -310,7 +338,7 @@ dta_sroc <- function(fit,
     p <- p + ggplot2::geom_point(data = pts[!is.na(pts$grp) & pts$grp == lv, ],
                                  ggplot2::aes(x = fpr, y = tpr),
                                  shape = grp_shape[[lv]], size = 2.4,
-                                 colour = "black", show.legend = FALSE)
+                                 colour = grp_col[[lv]], show.legend = FALSE)
   }
 
   if (isTRUE(labels) && nrow(pts) > 0) {
