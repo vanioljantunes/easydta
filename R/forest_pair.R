@@ -82,6 +82,12 @@
 #' @param legend  Optional legend text shown left-aligned below the blocks.
 #'   When `NULL` a one-line note on the interval method is written for you;
 #'   pass `NA` to suppress it.
+#' @param measure_label Where the block titles ("Sensitivity", "Specificity")
+#'   are drawn: `"left"` (the default) puts them on their own line above the
+#'   block; `"forest"` puts them inside the CI panel, above the reference
+#'   line.
+#' @param border  Draw a rectangle around each measure block (default
+#'   `FALSE`).
 #'
 #' @return A gtable object, drawn on the current device.
 #' @examples
@@ -101,13 +107,16 @@ dta_forest_pair <- function(x,
                             counts = TRUE,
                             widths = c(1.6, 0.4, 0.4, 0.5, 1.15,
                                        0.4, 0.4, 0.5, 1.15, 1.8, 1.4),
-                            title = NULL, legend = NULL) {
+                            title = NULL, legend = NULL,
+                            measure_label = c("left", "forest"),
+                            border = FALSE) {
 
   if (!inherits(x, c("dta_pairwise_result", "dta_compare")))
     stop("`x` must be a dta_pairwise_result (dta_pairwise / dta_compare_tests).")
 
-  which     <- match.arg(which, c("sens", "spec"), several.ok = TRUE)
-  just      <- match.arg(just)
+  which         <- match.arg(which, c("sens", "spec"), several.ok = TRUE)
+  just          <- match.arg(just)
+  measure_label <- match.arg(measure_label)
   if (length(widths) != 11 || !is.numeric(widths) || any(!is.finite(widths)) ||
       any(widths <= 0))
     stop("`widths` must be eleven positive numbers.")
@@ -262,7 +271,7 @@ dta_forest_pair <- function(x,
                          x = 0, hjust = 0, size = cell_size) +
       ggplot2::annotate("text", x = 0, y = header_y, label = "Study",
                         hjust = 0, fontface = "bold", size = hdr_size) +
-      ggplot2::annotate("text", x = 0, y = note_y, label = p_note,
+      ggplot2::annotate("text", x = 0.06, y = note_y, label = p_note,
                         hjust = 0, size = cell_size) +
       ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
       base_theme + invisible_axis_theme
@@ -291,6 +300,11 @@ dta_forest_pair <- function(x,
     p_diff <- ggplot2::ggplot(d, ggplot2::aes(x = est, y = ypos)) +
       zebra +
       ggplot2::geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
+      { if (measure_label == "forest")
+          ggplot2::annotate("text", x = 0, y = header_y,
+                            label = measure_title[[m]],
+                            hjust = 0.5, fontface = "bold", size = hdr_size)
+        else NULL } +
       ggplot2::geom_errorbar(ggplot2::aes(xmin = lci, xmax = uci),
                              width = 0.25, orientation = "y") +
       ggplot2::geom_point(ggplot2::aes(shape = point_shape, size = point_size)) +
@@ -350,8 +364,25 @@ dta_forest_pair <- function(x,
     body_h <- grid::unit((ylim_full[2] - ylim_full[1]) * row_in, "inches") +
               grid::unit(axis_pad_in, "inches")
 
-    blocks  <- c(blocks,  list(m_grob, spanner, body))
-    heights <- c(heights, list(m_h,    span_h,  body_h))
+    block <- gridExtra::arrangeGrob(
+      grobs = list(spanner, body), ncol = 1,
+      heights = grid::unit.c(span_h, body_h))
+    if (border)
+      block <- grid::grobTree(
+        block,
+        grid::rectGrob(gp = grid::gpar(fill = NA, col = "grey30",
+                                       lwd = 1)))
+    block_h <- span_h + body_h
+
+    if (measure_label == "left") {
+      blocks  <- c(blocks,  list(m_grob, block))
+      heights <- c(heights, list(m_h,    block_h))
+    } else {
+      # the measure title lives inside the CI panel; keep a slim gap between
+      # blocks so the borders do not touch
+      blocks  <- c(blocks,  list(grid::nullGrob(), block))
+      heights <- c(heights, list(grid::unit(6, "points"), block_h))
+    }
   }
 
   if (is.null(legend))
