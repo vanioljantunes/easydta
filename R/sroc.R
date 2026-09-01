@@ -376,33 +376,49 @@ dta_sroc <- function(fit,
                       label = rows_value,
                       fontface = "plain", hjust = 0, size = text_size)
 
-  seg_half <- 0.018
-  p <- p +
-    ggplot2::annotate("rect",
-                      xmin = lg$xmin, xmax = lg$xmax,
-                      ymin = lg$ymin, ymax = lg$ymax,
-                      fill = "white", colour = "black",
-                      linewidth = 0.4)
+  if (length(grp_lv)) {
+    # Grouped plots carry only the compact group legend: no box, coloured
+    # symbol plus coloured text, centred at the bottom of the panel.
+    lab_txt <- paste0(grp_lv, group.suffix)
+    blk_w   <- 0.04 + max(nchar(lab_txt)) * char_w
+    x0      <- 0.5 - blk_w / 2
+    ys      <- 0.045 + (rev(seq_along(grp_lv)) - 1) * row_step
+    p <- p +
+      ggplot2::annotate("point", x = x0 + 0.01, y = ys,
+                        shape = unname(grp_shape), size = 2.4,
+                        colour = unname(grp_col)) +
+      ggplot2::annotate("text", x = x0 + 0.04, y = ys,
+                        label = lab_txt, colour = unname(grp_col),
+                        hjust = 0, size = 3.1)
+  } else {
+    seg_half <- 0.018
+    p <- p +
+      ggplot2::annotate("rect",
+                        xmin = lg$xmin, xmax = lg$xmax,
+                        ymin = lg$ymin, ymax = lg$ymax,
+                        fill = "white", colour = "black",
+                        linewidth = 0.4)
 
-  for (i in seq_len(n_lg)) {
-    p <- if (!is.na(lg_pch[i])) {
-      p + ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[i],
-                            shape = lg_pch[i], size = lg_size[i],
-                            colour = lg_col[i])
-    } else {
-      p + ggplot2::annotate("segment",
-                            x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
-                            y = lg_rows[i], yend = lg_rows[i],
-                            colour = lg_col[i], linetype = lg_lty[i],
-                            linewidth = lg_lwd[i])
+    for (i in seq_len(n_lg)) {
+      p <- if (!is.na(lg_pch[i])) {
+        p + ggplot2::annotate("point", x = lg_x_sym, y = lg_rows[i],
+                              shape = lg_pch[i], size = lg_size[i],
+                              colour = lg_col[i])
+      } else {
+        p + ggplot2::annotate("segment",
+                              x = lg_x_sym - seg_half, xend = lg_x_sym + seg_half,
+                              y = lg_rows[i], yend = lg_rows[i],
+                              colour = lg_col[i], linetype = lg_lty[i],
+                              linewidth = lg_lwd[i])
+      }
     }
-  }
 
-  p <- p +
-    ggplot2::annotate("text",
-                      x = lg_x_label, y = lg_rows,
-                      label = legend_text,
-                      hjust = 0, size = 3.1)
+    p <- p +
+      ggplot2::annotate("text",
+                        x = lg_x_label, y = lg_rows,
+                        label = legend_text,
+                        hjust = 0, size = 3.1)
+  }
 
   p <- p +
     ggplot2::coord_cartesian(clip = "off") +
