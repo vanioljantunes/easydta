@@ -1,6 +1,6 @@
 Package: easydta
 Title: Cochrane-Compliant Diagnostic Test Accuracy Meta-Analysis in R
-Version: 0.1.0
+Version: 0.1.1
 Authors@R:
     person("Course", "Author", email = "author@example.org",
            role = c("aut", "cre"))
