@@ -25,6 +25,52 @@ and \link{schuetz} (paired CT vs MRI). \code{\link[=dta_reshape]{dta_reshape()}}
 \code{\link[=dta_reshape_pairwise]{dta_reshape_pairwise()}} convert wide to the long format the fitters use,
 but the one-call wrappers reshape internally.
 }
+\section{Tutorial, from an Excel sheet}{
+
+\if{html}{\figure{tutorial.png}{options: width="100\%" alt="easydta tutorial"}}
+\enumerate{
+\item Prepare packages:
+}
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{install.packages(c("remotes", "rstudioapi", "readxl"))
+remotes::install_github("vanioljantunes/easydta")
+library(easydta); library(rstudioapi); library(readxl)
+}\if{html}{\out{</div>}}
+\enumerate{
+\item Load the data. One row per study with \verb{studlab, TP, FP, FN, TN}
+(paired: \code{.e} / \code{.c} suffixed counts):
+}
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{myfile <- selectFile()
+sheet_names <- excel_sheets(myfile)
+ma <- lapply(sheet_names, function(x)
+  as.data.frame(read_excel(myfile, sheet = x)))
+names(ma) <- sheet_names
+d <- ma$CCP2
+}\if{html}{\out{</div>}}
+\enumerate{
+\item One test: fit, then plot:
+}
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{fit <- dta_fit_single(d, tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+                      studlab = "studlab")
+dta_forest(fit)
+dta_sroc(fit, test.label = "anti-CCP2",
+         outcome = "rheumatoid arthritis", population = "adults")
+dta_funnel(fit, test.label = "anti-CCP2",
+           outcome = "rheumatoid arthritis", population = "adults")
+}\if{html}{\out{</div>}}
+\enumerate{
+\item Two tests in the same studies: compare:
+}
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{res <- dta_pairwise(schuetz, studlab = "studlab",
+                    intervention.label = "CT", control.label = "MRI")
+dta_sroc_pair(res, outcome = "coronary artery disease",
+              population = "adults with suspected CAD")
+}\if{html}{\out{</div>}}
+}
+
 \examples{
 data(anti_ccp2)   # single-arm: studlab, TP, FP, FN, TN, test
 head(anti_ccp2)

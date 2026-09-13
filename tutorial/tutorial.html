@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>easydta tutorial</title>
+<style>
+  :root {
+    --navy: #1F2A44;
+    --red: #C0392B;
+    --blue: #4E7CA8;
+    --grey: #8A939B;
+    --band: #EDEFF2;
+    --line: #C5C9CE;
+    --paper: #FFFFFF;
+    --page: #F4F1EC;
+    --muted: #5B6475;
+    --code-bg: #F7F8FA;
+    --serif: Georgia, "Times New Roman", Times, serif;
+    --sans: "Segoe UI", Arial, Helvetica, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--navy); font-family: var(--sans); }
+  .sheet { width: 1200px; margin: 20px auto; background: var(--paper);
+           border: 1px solid var(--line); }
+
+  header { padding: 38px 48px 30px; text-align: center; border-bottom: 1px solid var(--line); }
+  header h1 { font-family: var(--serif); font-size: 40px; margin: 0 0 6px; letter-spacing: 0.2px; }
+  header p { margin: 0; font-family: var(--serif); font-size: 19px; color: var(--muted); }
+  .flow { display: flex; justify-content: center; align-items: center; gap: 14px;
+          margin-top: 22px; font-family: var(--serif); font-size: 16px; }
+  .flow .pill { border: 1px solid var(--line); background: var(--band); padding: 5px 14px;
+                border-radius: 999px; }
+  .flow .arrow { color: var(--grey); font-size: 18px; }
+
+  section.step { padding: 30px 48px 34px; border-bottom: 1px solid var(--line); }
+  section.step:last-of-type { border-bottom: none; }
+  .step-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px;
+               background: var(--band); margin-left: -48px; margin-right: -48px;
+               padding: 12px 48px; }
+  .num { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--navy);
+         background: #fff; display: flex; align-items: center; justify-content: center;
+         font-weight: 700; font-size: 20px; font-family: var(--sans); flex: none; }
+  .step-head h2 { font-family: var(--serif); font-size: 26px; margin: 0; }
+  .step-head span { font-family: var(--serif); color: var(--muted); font-size: 16px; margin-left: 4px; }
+
+  .grid { display: grid; gap: 26px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; }
+  h3 small { font-family: var(--sans); font-weight: 400; font-size: 13.5px; color: var(--muted); }
+  h3 small code { font-family: var(--mono); color: var(--navy); }
+  p.note { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 8px 0 0; }
+  p.note code { font-family: var(--mono); font-size: 13px; color: var(--navy); }
+
+  pre.code { margin: 0; background: var(--code-bg); border: 1px solid var(--line);
+             border-left: 4px solid var(--navy); padding: 14px 16px; font-family: var(--mono);
+             font-size: 14px; line-height: 1.55; color: var(--navy); white-space: pre; }
+  .c { color: #7A8391; font-style: italic; }
+  .f { color: var(--navy); font-weight: 700; }
+  .s { color: var(--red); }
+  .a { color: var(--blue); }
+  .k { color: #6B4FA0; }
+
+  .pkgs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pkg { border: 1px solid var(--line); padding: 12px 14px; }
+  .pkg b { font-family: var(--mono); font-size: 15px; display: block; margin-bottom: 4px; }
+  .pkg span { font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+  .pkg span code { font-family: var(--mono); color: var(--navy); }
+  .pkg.main { border-color: var(--red); box-shadow: inset 4px 0 0 var(--red); }
+
+  table.tpl { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  table.tpl th { background: var(--navy); color: #fff; font-family: var(--mono); font-weight: 600;
+                 padding: 7px 10px; text-align: left; font-size: 14px; }
+  table.tpl th.e { background: #3B4A6B; }
+  table.tpl td { padding: 6px 10px; border-bottom: 1px solid var(--band); }
+  table.tpl td.n { text-align: right; font-family: var(--mono); }
+  .cols { margin-top: 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+          font-size: 13.5px; }
+  .cols > code { font-family: var(--mono); color: var(--navy); font-weight: 700; }
+  .cols > span { color: var(--muted); }
+
+  .console { margin-top: 12px; background: #fff; border: 1px dashed var(--grey);
+             padding: 10px 14px; font-family: var(--mono); font-size: 13.5px; line-height: 1.5; }
+  .console .t { color: var(--muted); }
+  .console .pick { background: #FFF4CC; }
+
+  .plotcard { border: 1px solid var(--line); padding: 8px; background: #fff; margin: 0; }
+  .plotcard img { width: 100%; display: block; }
+  .plotcard figcaption { font-family: var(--serif); font-size: 13.5px; color: var(--muted);
+                         text-align: center; padding-top: 6px; }
+  .wide { margin-top: 24px; }
+
+  .args { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 26px; }
+  .card { border: 1px solid var(--line); }
+  .card .hd { background: var(--band); padding: 9px 12px; }
+  .card .hd b { font-family: var(--serif); font-size: 17px; display: block; }
+  .card .hd code { font-family: var(--mono); font-size: 13px; color: var(--blue); }
+  .card .bd { padding: 12px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .card .bd code { font-family: var(--mono); color: var(--navy); font-size: 12.5px; }
+
+  .pitfall { margin-top: 18px; display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .pit { border: 1px solid var(--line); border-left: 4px solid var(--red); padding: 10px 14px;
+         font-size: 14px; line-height: 1.45; }
+  .pit b { font-family: var(--serif); font-size: 15.5px; display: block; margin-bottom: 3px; }
+  .pit code { font-family: var(--mono); font-size: 13px; color: var(--navy); }
+  footer { text-align: center; padding: 14px; font-family: var(--serif); font-size: 13.5px;
+           color: var(--muted); border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>easydta tutorial</h1>
+    <p>From an Excel sheet to Cochrane-style diagnostic test accuracy plots in four steps</p>
+    <div class="flow">
+      <span class="pill">Excel sheet</span><span class="arrow">&rarr;</span>
+      <span class="pill">dta_fit_single() / dta_pairwise()</span><span class="arrow">&rarr;</span>
+      <span class="pill">dta_forest() &middot; dta_sroc() &middot; dta_funnel()</span>
+    </div>
+  </header>
+
+  <!-- STEP 1 -->
+  <section class="step">
+    <div class="step-head"><div class="num">1</div><h2>Prepare packages</h2><span>install once, load every session</span></div>
+    <div class="grid g2">
+      <pre class="code"><span class="c"># install once</span>
+<span class="f">install.packages</span>(<span class="k">c</span>(<span class="s">"remotes"</span>, <span class="s">"rstudioapi"</span>, <span class="s">"readxl"</span>))
+remotes::<span class="f">install_github</span>(<span class="s">"vanioljantunes/easydta"</span>)
+
+<span class="c"># load every session</span>
+<span class="f">library</span>(easydta)      <span class="c"># attaches ggplot2 too</span>
+<span class="f">library</span>(rstudioapi)
+<span class="f">library</span>(readxl)</pre>
+      <div>
+        <div class="pkgs">
+          <div class="pkg main"><b>easydta</b><span>fits the bivariate GLMM and draws the plots: <code>dta_*()</code></span></div>
+          <div class="pkg"><b>lme4, metafor, msm</b><span>model engine and tests, installed with easydta from CRAN</span></div>
+          <div class="pkg"><b>rstudioapi</b><span><code>selectFile()</code> opens a file picker</span></div>
+          <div class="pkg"><b>readxl</b><span>reads the sheets of the Excel file</span></div>
+        </div>
+        <p class="note">Updating easydta in an open session? Run
+          <code>unloadNamespace("easydta")</code> before <code>install_github()</code>,
+          then <code>library(easydta)</code> again, so the new version is the one in use.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="step">
+    <div class="step-head"><div class="num">2</div><h2>Load the data</h2><span>one row per study, 2&times;2 counts in columns</span></div>
+    <div class="grid g2">
+      <div>
+        <h3>Single test <small>one test, many studies</small></h3>
+        <table class="tpl">
+          <thead><tr><th>studlab</th><th>TP</th><th>FP</th><th>FN</th><th>TN</th></tr></thead>
+          <tbody>
+            <tr><td>Aotsuka 2005</td><td class="n">115</td><td class="n">17</td><td class="n">16</td><td class="n">73</td></tr>
+            <tr><td>Bombardieri 2004</td><td class="n">23</td><td class="n">0</td><td class="n">7</td><td class="n">39</td></tr>
+            <tr><td>Choi 2005</td><td class="n">236</td><td class="n">20</td><td class="n">88</td><td class="n">231</td></tr>
+          </tbody>
+        </table>
+        <h3 style="margin-top:20px">Two tests, same studies <small>paired: <code>.e</code> index, <code>.c</code> comparator</small></h3>
+        <table class="tpl">
+          <thead><tr><th>studlab</th><th>TP.e</th><th>FP.e</th><th>FN.e</th><th>TN.e</th><th class="e">TP.c</th><th class="e">FP.c</th><th class="e">FN.c</th><th class="e">TN.c</th></tr></thead>
+          <tbody>
+            <tr><td>Dewey 2006</td><td class="n">62</td><td class="n">5</td><td class="n">4</td><td class="n">46</td><td class="n">42</td><td class="n">2</td><td class="n">7</td><td class="n">39</td></tr>
+            <tr><td>Kefer 2005</td><td class="n">32</td><td class="n">6</td><td class="n">2</td><td class="n">12</td><td class="n">30</td><td class="n">9</td><td class="n">4</td><td class="n">9</td></tr>
+          </tbody>
+        </table>
+        <div class="cols">
+          <code>studlab</code><span>one label per study (author and year)</span>
+          <code>TP, FP</code><span>test positive, with / without the target condition</span>
+          <code>FN, TN</code><span>test negative, with / without the target condition</span>
+        </div>
+      </div>
+      <div>
+        <h3>Pick the file, then the sheet</h3>
+        <pre class="code"><span class="c"># opens a file picker in RStudio</span>
+myfile &lt;- <span class="f">selectFile</span>()
+mwd    &lt;- <span class="f">dirname</span>(myfile)   <span class="c"># save plots next to it</span>
+
+<span class="c"># read every sheet into a list named ma</span>
+sheet_names &lt;- <span class="f">excel_sheets</span>(myfile)
+ma &lt;- <span class="f">lapply</span>(sheet_names, <span class="k">function</span>(x)
+  <span class="f">as.data.frame</span>(<span class="f">read_excel</span>(myfile, <span class="a">sheet</span> = x)))
+<span class="f">names</span>(ma) &lt;- sheet_names
+
+<span class="c"># choose the sheet to analyse</span>
+sheet &lt;- <span class="f">select.list</span>(sheet_names, <span class="a">title</span> = <span class="s">"Which sheet?"</span>)
+d &lt;- ma[[sheet]]      <span class="c"># same as ma$CCP2</span></pre>
+        <div class="console">
+          <div class="t">Which sheet?</div>
+          <div>1: CCP1</div>
+          <div class="pick">2: CCP2</div>
+          <div class="t">Selection: 2</div>
+        </div>
+        <p class="note">No file yet? The example workbook ships with the package:
+          <code>system.file("extdata", "anti_ccp.xlsx", package = "easydta")</code>,
+          or load the data directly with <code>data(anti_ccp2)</code> and <code>data(schuetz)</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="step">
+    <div class="step-head"><div class="num">3</div><h2>One test: fit and plot</h2><span>dta_fit_single &rarr; forest, SROC, funnel</span></div>
+    <div class="grid g2">
+      <div>
+        <pre class="code"><span class="c"># a. bivariate binomial GLMM (Cochrane Appendix 5)</span>
+fit &lt;- <span class="f">dta_fit_single</span>(d, <span class="a">tp</span> = <span class="s">"TP"</span>, <span class="a">fp</span> = <span class="s">"FP"</span>,
+                      <span class="a">fn</span> = <span class="s">"FN"</span>, <span class="a">tn</span> = <span class="s">"TN"</span>,
+                      <span class="a">studlab</span> = <span class="s">"studlab"</span>)
+<span class="f">print</span>(fit)            <span class="c"># Se, Sp, DOR, LR+, LR-, I2</span>
+
+<span class="c"># b. coupled sensitivity / specificity forest</span>
+<span class="f">dta_forest</span>(fit)
+
+<span class="c"># c. SROC with confidence + prediction regions, AUC</span>
+<span class="f">dta_sroc</span>(fit, <span class="a">test.label</span> = <span class="s">"anti-CCP2"</span>,
+         <span class="a">outcome</span>    = <span class="s">"rheumatoid arthritis"</span>,
+         <span class="a">population</span> = <span class="s">"adults"</span>)
+
+<span class="c"># d. Deeks funnel + asymmetry test</span>
+<span class="f">dta_funnel</span>(fit, <span class="a">test.label</span> = <span class="s">"anti-CCP2"</span>,
+           <span class="a">outcome</span> = <span class="s">"rheumatoid arthritis"</span>,
+           <span class="a">population</span> = <span class="s">"adults"</span>)
+
+<span class="c"># e. save for the paper</span>
+<span class="f">png</span>(<span class="f">file.path</span>(mwd, <span class="s">"forest_ccp2.png"</span>),
+    <span class="a">width</span> = <span class="k">1400</span>, <span class="a">height</span> = <span class="k">1000</span>, <span class="a">res</span> = <span class="k">150</span>)
+<span class="f">dta_forest</span>(fit)
+<span class="f">dev.off</span>()</pre>
+        <div class="pitfall">
+          <div class="pit"><b>Studies with a zero cell</b>
+            <code>dta_funnel()</code> adds <code>continuity = 0.5</code> to all four cells of that
+            study before computing ln(DOR); the GLMM fit uses the raw counts.</div>
+        </div>
+      </div>
+      <figure class="plotcard">
+        <img src="../man/figures/tutorial-sroc.png" alt="SROC plot drawn by dta_sroc()">
+        <figcaption>Result: squares = studies, solid line = SROC curve, black dot = summary point,
+          dashed = 95% confidence region, red dotted = 95% prediction region;
+          the box reports pooled Sens, Spec, AUC and bivariate I&sup2;</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="step">
+    <div class="step-head"><div class="num">4</div><h2>Two tests: compare</h2><span>dta_pairwise &rarr; side-by-side SROC + differences</span></div>
+    <div class="grid g2">
+      <pre class="code"><span class="c"># paired wide frame: .e = CT, .c = MRI</span>
+res &lt;- <span class="f">dta_pairwise</span>(schuetz, <span class="a">studlab</span> = <span class="s">"studlab"</span>,
+                    <span class="a">intervention.label</span> = <span class="s">"CT"</span>,
+                    <span class="a">control.label</span>      = <span class="s">"MRI"</span>)
+<span class="f">print</span>(res)     <span class="c"># LR tests + Se/Sp differences</span>
+
+<span class="f">dta_sroc_pair</span>(res,
+              <span class="a">outcome</span>    = <span class="s">"coronary artery disease"</span>,
+              <span class="a">population</span> = <span class="s">"adults with suspected CAD"</span>)
+
+<span class="c"># per-arm plots: pick the arm by role</span>
+<span class="f">dta_forest</span>(res, <span class="a">test</span> = intervention)
+<span class="f">dta_funnel</span>(res, <span class="a">test</span> = control)</pre>
+      <div class="pitfall" style="margin-top:0">
+        <div class="pit"><b>Paired or not?</b>
+          Every study did both tests &rarr; one wide <code>.e</code>/<code>.c</code> frame into
+          <code>dta_pairwise()</code>. Each study did only one test &rarr; stack the arms with a
+          <code>test</code> column and use
+          <code>dta_compare_tests(rbind(anti_ccp1, anti_ccp2), test_var = "test")</code>.</div>
+        <div class="pit"><b>Reading the table</b>
+          Effect size = index minus comparator (95% CI). Sens / Spec p-values are likelihood-ratio
+          tests (Cochrane Appendix 12); the AUC interval comes from a parametric bootstrap.</div>
+      </div>
+    </div>
+    <figure class="plotcard wide">
+      <img src="../man/figures/tutorial-sroc-pair.png" alt="Paired SROC plot drawn by dta_sroc_pair()">
+      <figcaption>Result: one SROC panel per test with its own summary box, and the differences table
+        (CT &minus; MRI) for sensitivity, specificity, AUC and I&sup2; beneath</figcaption>
+    </figure>
+
+    <div class="args">
+      <div class="card">
+        <div class="hd"><b>Plot titles</b><code>test.label, outcome, population</code></div>
+        <div class="bd">Build the title "sROC of <code>test</code> to predict <code>outcome</code>
+          in <code>population</code>". Same arguments on <code>dta_sroc()</code> and
+          <code>dta_funnel()</code>; <code>dta_sroc_pair()</code> takes the arm names as labels.</div>
+      </div>
+      <div class="card">
+        <div class="hd"><b>Arm by role</b><code>test = intervention</code></div>
+        <div class="bd">On a pairwise result, <code>intervention</code> is the <code>.e</code> arm and
+          <code>control</code> the <code>.c</code> arm. The arm name (CT, MRI) is looked up for you;
+          bare word or string both work.</div>
+      </div>
+      <div class="card">
+        <div class="hd"><b>Variance structure</b><code>variance = "equal"</code></div>
+        <div class="bd"><code>"equal"</code> shares the between-study variances across tests
+          (Cochrane model B, default). <code>"unequal"</code> gives each test its own
+          (model E).</div>
+      </div>
+      <div class="card">
+        <div class="hd"><b>AUC interval</b><code>auc_ic = TRUE, B = 2000</code></div>
+        <div class="bd">Bootstrap draws for the AUC CI and the AUC difference in
+          <code>dta_sroc_pair()</code>. <code>auc_ic = FALSE</code> skips it for a fast preview;
+          <code>dta_sroc()</code> uses <code>auc_ci</code>.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>easydta &middot; github.com/vanioljantunes/easydta &middot; help pages: <code>?dta_sroc</code>, <code>?easydta-1-data-preparation</code></footer>
+</div>
+</body>
+</html>

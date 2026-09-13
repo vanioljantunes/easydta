@@ -11,6 +11,43 @@
 #' How to shape diagnostic test accuracy (DTA) data for `easydta` and which
 #' bundled datasets to use.
 #'
+#' @section Tutorial, from an Excel sheet:
+#' \if{html}{\figure{tutorial.png}{options: width="100\%" alt="easydta tutorial"}}
+#'
+#' 1. Prepare packages:
+#' ```r
+#' install.packages(c("remotes", "rstudioapi", "readxl"))
+#' remotes::install_github("vanioljantunes/easydta")
+#' library(easydta); library(rstudioapi); library(readxl)
+#' ```
+#' 2. Load the data. One row per study with `studlab, TP, FP, FN, TN`
+#'    (paired: `.e` / `.c` suffixed counts):
+#' ```r
+#' myfile <- selectFile()
+#' sheet_names <- excel_sheets(myfile)
+#' ma <- lapply(sheet_names, function(x)
+#'   as.data.frame(read_excel(myfile, sheet = x)))
+#' names(ma) <- sheet_names
+#' d <- ma$CCP2
+#' ```
+#' 3. One test: fit, then plot:
+#' ```r
+#' fit <- dta_fit_single(d, tp = "TP", fp = "FP", fn = "FN", tn = "TN",
+#'                       studlab = "studlab")
+#' dta_forest(fit)
+#' dta_sroc(fit, test.label = "anti-CCP2",
+#'          outcome = "rheumatoid arthritis", population = "adults")
+#' dta_funnel(fit, test.label = "anti-CCP2",
+#'            outcome = "rheumatoid arthritis", population = "adults")
+#' ```
+#' 4. Two tests in the same studies: compare:
+#' ```r
+#' res <- dta_pairwise(schuetz, studlab = "studlab",
+#'                     intervention.label = "CT", control.label = "MRI")
+#' dta_sroc_pair(res, outcome = "coronary artery disease",
+#'               population = "adults with suspected CAD")
+#' ```
+#'
 #' @details
 #' `easydta` accepts two wide layouts, one row per study:
 #'

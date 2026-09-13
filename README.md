@@ -56,6 +56,19 @@ No extra repositories or non-CRAN packages are needed. AUC is the
 trapezoidal integral of the SROC curve; its CI (and the pairwise dAUC
 CI + p-value) comes from a built-in parametric MVN bootstrap.
 
+### Tutorial
+
+From an Excel sheet to the plots in four steps: prepare packages, load the
+data (`selectFile()`, pick the sheet from `ma`), fit one test with
+`dta_fit_single()` → `dta_forest()` / `dta_sroc()` / `dta_funnel()`, then
+compare two tests with `dta_pairwise()` → `dta_sroc_pair()`. The same
+walk-through is in `?easydta-1-data-preparation`.
+
+![easydta tutorial](man/figures/tutorial.png)
+
+The page is built from `tutorial/tutorial.html` (`Rscript tutorial/plot.R`,
+then `node tutorial/render.mjs`).
+
 ---
 
 ## 3. Data preparation
