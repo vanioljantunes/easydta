@@ -4,26 +4,17 @@
 
 ## Contents
 
-1. [What is this package](#1-what-is-this-package)
-2. [How to install it](#2-how-to-install-it)
-   - [Tutorial](#tutorial)
-3. [Data preparation](#3-data-preparation)
-   - [Input formats](#input-formats)
-   - [Bundled example datasets](#bundled-example-datasets)
-   - [Reshaping](#reshaping-only-needed-when-calling-fit-functions-yourself)
-4. [Single-arm DTA analysis](#4-single-arm-dta-analysis)
-   - [Plots](#plots)
-   - [Tidy summaries](#tidy-summaries)
-5. [Pairwise DTA analysis](#5-pairwise-dta-analysis)
-   - [One-call analysis](#one-call-analysis)
-   - [Plots](#plots-1)
-   - [Lower-level pairwise API](#lower-level-pairwise-api-if-you-dont-want-the-wrapper)
-6. [Small effect analysis](#6-small-effect-analysis)
-7. [Validation against the Cochrane Handbook](#7-validation-against-the-cochrane-handbook)
-   - [Results](#results)
-   - [Run it yourself](#run-it-yourself)
-- [References](#references)
-- [License](#license)
+| Section | Jump to |
+|:---|:---|
+| **[1 · What is this package](#1-what-is-this-package)**<br><sub>Cochrane-style DTA meta-analysis in a few calls</sub> | |
+| **[2 · How to install it](#2-how-to-install-it)**<br><sub>One line from GitHub, plus an illustrated walk-through</sub> | [Tutorial](#tutorial) |
+| **[3 · Data preparation](#3-data-preparation)**<br><sub>Single-test and paired 2×2 layouts</sub> | [Input formats](#input-formats) · [Datasets](#bundled-example-datasets) · [Reshaping](#reshaping-only-needed-when-calling-fit-functions-yourself) |
+| **[4 · Single-arm analysis](#4-single-arm-dta-analysis)**<br><sub>One test, many studies</sub> | [Plots](#plots) · [Tidy summaries](#tidy-summaries) |
+| **[5 · Pairwise analysis](#5-pairwise-dta-analysis)**<br><sub>Two tests head-to-head, LR tests and differences</sub> | [One call](#one-call-analysis) · [Plots](#plots-1) · [Low-level API](#lower-level-pairwise-api-if-you-dont-want-the-wrapper) |
+| **[6 · Small effect analysis](#6-small-effect-analysis)**<br><sub>Deeks funnel and asymmetry test</sub> | |
+| **[7 · Validation](#7-validation-against-the-cochrane-handbook)**<br><sub>Cochrane Handbook code vs easydta, same data</sub> | [Results](#results) · [Run it yourself](#run-it-yourself) |
+
+<sub>[References](#references) · [License](#license)</sub>
 
 ---
 
