@@ -2,6 +2,29 @@
 
 **Cochrane-compliant Diagnostic Test Accuracy meta-analysis in R.**
 
+## Contents
+
+1. [What is this package](#1-what-is-this-package)
+2. [How to install it](#2-how-to-install-it)
+   - [Tutorial](#tutorial)
+3. [Data preparation](#3-data-preparation)
+   - [Input formats](#input-formats)
+   - [Bundled example datasets](#bundled-example-datasets)
+   - [Reshaping](#reshaping-only-needed-when-calling-fit-functions-yourself)
+4. [Single-arm DTA analysis](#4-single-arm-dta-analysis)
+   - [Plots](#plots)
+   - [Tidy summaries](#tidy-summaries)
+5. [Pairwise DTA analysis](#5-pairwise-dta-analysis)
+   - [One-call analysis](#one-call-analysis)
+   - [Plots](#plots-1)
+   - [Lower-level pairwise API](#lower-level-pairwise-api-if-you-dont-want-the-wrapper)
+6. [Small effect analysis](#6-small-effect-analysis)
+7. [Validation against the Cochrane Handbook](#7-validation-against-the-cochrane-handbook)
+   - [Results](#results)
+   - [Run it yourself](#run-it-yourself)
+- [References](#references)
+- [License](#license)
+
 ---
 
 ## 1. What is this package
