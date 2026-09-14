@@ -1,5 +1,6 @@
 ^data-raw$
 ^examples$
 ^tutorial$
+^validation$
 ^.*\.Rproj$
 ^\.Rproj\.user$

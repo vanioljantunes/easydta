@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>easydta validation</title>
+<style>
+  :root {
+    --navy: #1F2A44;
+    --red: #C0392B;
+    --blue: #4E7CA8;
+    --green: #2E7D4F;
+    --amber: #B7791F;
+    --grey: #8A939B;
+    --band: #EDEFF2;
+    --line: #C5C9CE;
+    --paper: #FFFFFF;
+    --page: #F4F1EC;
+    --muted: #5B6475;
+    --code-bg: #F7F8FA;
+    --coch: #7A4E2D;
+    --serif: Georgia, "Times New Roman", Times, serif;
+    --sans: "Segoe UI", Arial, Helvetica, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--navy); font-family: var(--sans); }
+  .sheet { width: 1200px; margin: 20px auto; background: var(--paper); border: 1px solid var(--line); }
+
+  header { padding: 38px 48px 30px; text-align: center; border-bottom: 1px solid var(--line); }
+  header h1 { font-family: var(--serif); font-size: 40px; margin: 0 0 6px; }
+  header p { margin: 0; font-family: var(--serif); font-size: 19px; color: var(--muted); }
+  .flow { display: flex; justify-content: center; align-items: center; gap: 14px;
+          margin-top: 22px; font-family: var(--serif); font-size: 16px; }
+  .flow .pill { border: 1px solid var(--line); background: var(--band); padding: 5px 14px; border-radius: 999px; }
+  .flow .arrow { color: var(--grey); font-size: 18px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 24px 48px 26px;
+           border-bottom: 1px solid var(--line); }
+  .stat { border: 1px solid var(--line); padding: 14px 16px; }
+  .stat b { display: block; font-family: var(--serif); font-size: 30px; line-height: 1.1; }
+  .stat span { font-size: 13.5px; color: var(--muted); line-height: 1.4; display: block; margin-top: 4px; }
+  .stat.ok { box-shadow: inset 4px 0 0 var(--green); }
+  .stat.ok b { color: var(--green); }
+  .stat.note { box-shadow: inset 4px 0 0 var(--amber); }
+  .stat.note b { color: var(--amber); font-size: 22px; }
+
+  section.step { padding: 30px 48px 34px; border-bottom: 1px solid var(--line); }
+  section.step:last-of-type { border-bottom: none; }
+  .step-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; background: var(--band);
+               margin-left: -48px; margin-right: -48px; padding: 12px 48px; }
+  .num { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--navy); background: #fff;
+         display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; flex: none; }
+  .step-head h2 { font-family: var(--serif); font-size: 26px; margin: 0; }
+  .step-head span { font-family: var(--serif); color: var(--muted); font-size: 16px; margin-left: 4px; }
+
+  .grid { display: grid; gap: 26px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3-2 { grid-template-columns: 1.25fr 0.75fr; }
+  h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+  h3 small { font-family: var(--sans); font-weight: 400; font-size: 13px; color: var(--muted); }
+  .tag { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+         padding: 3px 9px; border-radius: 3px; color: #fff; }
+  .tag.c { background: var(--coch); }
+  .tag.e { background: var(--navy); }
+  .pit code, td code, .adds code { font-family: var(--mono); font-size: 12.5px; color: var(--navy); }
+
+  pre.code { margin: 0; background: var(--code-bg); border: 1px solid var(--line); padding: 13px 15px;
+             font-family: var(--mono); font-size: 13px; line-height: 1.5; color: var(--navy); white-space: pre; }
+  pre.code.coch { border-left: 4px solid var(--coch); }
+  pre.code.easy { border-left: 4px solid var(--navy); }
+  .cm { color: #7A8391; font-style: italic; }
+  .f { font-weight: 700; }
+  .s { color: var(--red); }
+  .a { color: var(--blue); }
+
+  table.cmp { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 18px; }
+  table.cmp th { background: var(--navy); color: #fff; font-weight: 600; padding: 7px 10px; text-align: left; font-size: 13.5px; }
+  table.cmp th.coch { background: var(--coch); }
+  table.cmp td { padding: 6px 10px; border-bottom: 1px solid var(--band); font-family: var(--mono); font-size: 13px; }
+  table.cmp td:first-child { font-family: var(--sans); font-size: 14px; }
+  table.cmp td.d { text-align: center; color: var(--green); font-weight: 700; }
+  table.cmp td.d.warn { color: var(--amber); }
+  table.cmp tr.sub td { background: #FAFAFB; font-family: var(--serif); font-size: 13.5px; color: var(--muted);
+                        font-style: italic; border-bottom: 1px solid var(--line); }
+
+  .adds { border: 1px solid var(--line); box-shadow: inset 4px 0 0 var(--blue); padding: 14px 16px; margin-top: 16px; }
+  .adds h4 { margin: 0 0 8px; font-family: var(--serif); font-size: 17px; }
+  .adds ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .adds li b { color: var(--navy); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; margin: 6px 0 10px; }
+  .kv code { font-family: var(--mono); color: var(--navy); }
+  .kv span { font-family: var(--mono); color: var(--blue); }
+
+  .pit { border: 1px solid var(--line); border-left: 4px solid var(--amber); padding: 10px 14px; font-size: 14px;
+         line-height: 1.5; margin-top: 16px; }
+  .pit b { font-family: var(--serif); font-size: 15.5px; display: block; margin-bottom: 3px; }
+  footer { text-align: center; padding: 14px 48px; font-family: var(--serif); font-size: 13.5px; color: var(--muted);
+           border-top: 1px solid var(--line); line-height: 1.6; }
+  footer code { font-family: var(--mono); font-size: 12.5px; color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>easydta validation</h1>
+    <p>The Cochrane Handbook R code and easydta, run on the same data</p>
+    <div class="flow">
+      <span class="pill">Cochrane Appendix 5 &amp; 12 code</span><span class="arrow">&harr;</span>
+      <span class="pill">same studies</span><span class="arrow">&harr;</span>
+      <span class="pill">easydta one-liners</span><span class="arrow">&rarr;</span>
+      <span class="pill">validation/compare.R</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat ok"><b>64 / 64</b><span>values identical to the last digit (|&Delta;| &lt; 10<sup>&minus;6</sup>)</span></div>
+    <div class="stat ok"><b>15 / 15</b><span>Appendix 5: Se, Sp, DOR, LR+, LR&minus; with 95% CIs</span></div>
+    <div class="stat ok"><b>36 / 36</b><span>Appendix 12: LR tests, model B estimates, differences, per-test fits</span></div>
+    <div class="stat note"><b>Model E: 3rd decimal</b><span>same model; easydta's fit reaches the higher log-likelihood (section 3)</span></div>
+  </div>
+
+  <!-- SECTION 1 -->
+  <section class="step">
+    <div class="step-head"><div class="num">1</div><h2>One test: Appendix 5</h2><span>anti-CCP for rheumatoid arthritis, 37 studies, bivariate GLMM</span></div>
+    <div class="grid g2">
+      <div>
+        <h3><span class="tag c">Cochrane</span> Appendix 5, glmer in R <small>(key lines of 70)</small></h3>
+        <pre class="code coch">X$n1 &lt;- X$TP+X$FN;  X$n0 &lt;- X$FP+X$TN
+X$true1 &lt;- X$TP;    X$true0 &lt;- X$TN
+X$recordid &lt;- 1:37
+Y = <span class="f">reshape</span>(X, direction=<span class="s">"long"</span>, varying=<span class="f">list</span>(
+      <span class="f">c</span>(<span class="s">"n1"</span>,<span class="s">"n0"</span>), <span class="f">c</span>(<span class="s">"true1"</span>,<span class="s">"true0"</span>)), timevar=<span class="s">"sens"</span>,
+      times=<span class="f">c</span>(1,0), v.names=<span class="f">c</span>(<span class="s">"n"</span>,<span class="s">"true"</span>))
+Y = Y[<span class="f">order</span>(Y$id),];  Y$spec &lt;- 1-Y$sens
+MA_Y = <span class="f">glmer</span>(<span class="f">cbind</span>(true, n - true) ~ 0 + sens + spec +
+             (0+sens + spec|Study.ID), data=Y,
+             family=binomial, nAGQ=1)
+ma_Y = <span class="f">summary</span>(MA_Y)
+lsens = ma_Y$coeff[1,1];  se.lsens = ma_Y$coeff[1,2]
+Sens = <span class="f">c</span>(lsens, lsens-<span class="f">qnorm</span>(0.975)*se.lsens, ...)
+<span class="f">plogis</span>(Sens);  <span class="f">plogis</span>(Spec)
+DOR = <span class="f">exp</span>(lsens+lspec)
+se.logDOR = <span class="f">deltamethod</span>(~ (x1+x2),
+              mean=<span class="f">c</span>(lsens,lspec), cov=ma_Y$vcov)
+<span class="cm"># ... LR+, LR- the same way</span></pre>
+      </div>
+      <div>
+        <h3><span class="tag e">easydta</span> the same analysis</h3>
+        <pre class="code easy"><span class="f">library</span>(easydta)
+
+fit &lt;- <span class="f">dta_fit_single</span>(d, <span class="a">tp</span> = <span class="s">"TP"</span>, <span class="a">fp</span> = <span class="s">"FP"</span>,
+                      <span class="a">fn</span> = <span class="s">"FN"</span>, <span class="a">tn</span> = <span class="s">"TN"</span>,
+                      <span class="a">studlab</span> = <span class="s">"studlab"</span>)
+
+<span class="f">dta_summary</span>(fit)     <span class="cm"># Se, Sp, DOR, LR+, LR- + CIs</span>
+fit$heterogeneity    <span class="cm"># tau, rho, Zhou-Dendukuri I2</span>
+<span class="f">dta_sroc</span>(fit)        <span class="cm"># SROC + regions + AUC</span></pre>
+        <div class="adds">
+          <h4>easydta adds</h4>
+          <div class="kv">
+            <code>tau_sens / tau_spec</code><span>0.737 / 0.756</span>
+            <code>rho</code><span>&minus;0.485</span>
+            <code>I2 sens / spec</code><span>83.1% / 62.7%</span>
+            <code>I2 bivariate</code><span>71.2%</span>
+          </div>
+          <ul>
+            <li><b>Zhou-Dendukuri I&sup2;</b>, the joint statistic, instead of the naive Higgins I&sup2; that Cochrane &sect;10.2.5 warns against</li>
+            <li><b>Prediction region</b>, SROC curve and trapezoidal <b>AUC</b> with bootstrap CI</li>
+            <li><b>Forest and Deeks funnel</b> plots from the same <code>fit</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>Measure</th><th class="coch">Cochrane Appendix 5</th><th>easydta</th><th style="text-align:center">|&Delta;|</th></tr></thead>
+      <tbody>
+        <tr><td>Sensitivity</td><td>0.6578 (0.5996 &ndash; 0.7116)</td><td>0.6578 (0.5996 &ndash; 0.7116)</td><td class="d">0</td></tr>
+        <tr><td>Specificity</td><td>0.9572 (0.9440 &ndash; 0.9675)</td><td>0.9572 (0.9440 &ndash; 0.9675)</td><td class="d">0</td></tr>
+        <tr><td>Diagnostic odds ratio</td><td>43.03 (32.07 &ndash; 57.73)</td><td>43.03 (32.07 &ndash; 57.73)</td><td class="d">0</td></tr>
+        <tr><td>Positive likelihood ratio</td><td>15.38 (11.97 &ndash; 19.76)</td><td>15.38 (11.97 &ndash; 19.76)</td><td class="d">0</td></tr>
+        <tr><td>Negative likelihood ratio</td><td>0.3575 (0.3047 &ndash; 0.4195)</td><td>0.3575 (0.3047 &ndash; 0.4195)</td><td class="d">0</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section class="step">
+    <div class="step-head"><div class="num">2</div><h2>Two tests: Appendix 12</h2><span>CT vs MRI for coronary artery disease, 5 studies that did both tests</span></div>
+    <div class="grid g2">
+      <div>
+        <h3><span class="tag c">Cochrane</span> Appendix 12, glmer + lrtest <small>(key lines of 130)</small></h3>
+        <pre class="code coch">Y$seCT &lt;- (Y$CT)*(Y$sens);  Y$seMRI &lt;- (Y$MRI)*(Y$sens)
+Y$spCT &lt;- (Y$CT)*(Y$spec);  Y$spMRI &lt;- (Y$MRI)*(Y$spec)
+A = <span class="f">glmer</span>(<span class="f">cbind</span>(true, n-true) ~ 0 + sens + spec +
+          (0+sens + spec|Study_ID), data=Y, family=binomial)
+B = <span class="f">glmer</span>(<span class="f">cbind</span>(true, n-true) ~ 0 + seCT + seMRI + spCT +
+          spMRI + (0+sens + spec|Study_ID), ...)
+C = <span class="f">glmer</span>(... ~ 0 + sens + spCT + spMRI + ...)
+D = <span class="f">glmer</span>(... ~ 0 + seCT + seMRI + spec + ...)
+<span class="f">lrtest</span>(A,B);  <span class="f">lrtest</span>(B,C);  <span class="f">lrtest</span>(B,D)
+ma_CT  = <span class="f">glmer</span>(..., data=Y.CT);  <span class="f">sespci</span>(ma_CT)
+ma_MRI = <span class="f">glmer</span>(..., data=Y.MRI); <span class="f">sespci</span>(ma_MRI)
+<span class="f">sespci</span>(B)
+diff_Se = <span class="f">plogis</span>(seCT) - <span class="f">plogis</span>(seMRI)
+se.diff_Se = <span class="f">deltamethod</span>(~ (exp(x1)/(1+exp(x1))) -
+               (exp(x2)/(1+exp(x2))), mean=..., cov=se_cov)</pre>
+      </div>
+      <div>
+        <h3><span class="tag e">easydta</span> the same analysis</h3>
+        <pre class="code easy">res &lt;- <span class="f">dta_pairwise</span>(d, <span class="a">studlab</span> = <span class="s">"studlab"</span>,
+                    <span class="a">intervention.label</span> = <span class="s">"CT"</span>,
+                    <span class="a">control.label</span>      = <span class="s">"MRI"</span>)
+
+res$compare$lr_tests     <span class="cm"># lrtest(A,B), (B,C), (B,D)</span>
+<span class="f">dta_summary</span>(res$pair)    <span class="cm"># sespci(B)</span>
+res$compare$differences  <span class="cm"># diff_Se, diff_Sp, relative</span>
+res$arms$CT; res$arms$MRI <span class="cm"># ma_CT, ma_MRI</span>
+
+<span class="f">dta_sroc_pair</span>(res)       <span class="cm"># SROC per test + table</span></pre>
+        <div class="adds">
+          <h4>easydta adds</h4>
+          <ul>
+            <li>All four models and three LR tests from <b>one call</b></li>
+            <li><b>DOR, LR+, LR&minus;</b> per test with delta-method CIs</li>
+            <li><b>Zhou-Dendukuri I&sup2;</b> for each test, and in the table under the plot</li>
+            <li><b>AUC per test and AUC difference</b> with bootstrap CI and p-value</li>
+            <li>Side-by-side <b>SROC</b>, per-arm <b>forest</b> and <b>funnel</b> plots</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>Measure</th><th class="coch">Cochrane Appendix 12</th><th>easydta</th><th style="text-align:center">|&Delta;|</th></tr></thead>
+      <tbody>
+        <tr class="sub"><td colspan="4">Likelihood-ratio tests (equal variances)</td></tr>
+        <tr><td>A vs B: any test effect</td><td>&chi;&sup2; = 16.918, df 2, p = 0.00021</td><td>&chi;&sup2; = 16.918, df 2, p = 0.00021</td><td class="d">0</td></tr>
+        <tr><td>B vs C: does Se differ?</td><td>&chi;&sup2; = 6.302, df 1, p = 0.0121</td><td>&chi;&sup2; = 6.302, df 1, p = 0.0121</td><td class="d">0</td></tr>
+        <tr><td>B vs D: does Sp differ?</td><td>&chi;&sup2; = 10.618, df 1, p = 0.0011</td><td>&chi;&sup2; = 10.618, df 1, p = 0.0011</td><td class="d">0</td></tr>
+        <tr class="sub"><td colspan="4">Model B summary estimates: <code>sespci(B)</code> vs <code>dta_summary(res$pair)</code></td></tr>
+        <tr><td>CT sensitivity</td><td>94.5% (89.7 &ndash; 97.1)</td><td>94.5% (89.7 &ndash; 97.1)</td><td class="d">0</td></tr>
+        <tr><td>CT specificity</td><td>86.1% (74.4 &ndash; 92.9)</td><td>86.1% (74.4 &ndash; 92.9)</td><td class="d">0</td></tr>
+        <tr><td>MRI sensitivity</td><td>86.1% (79.4 &ndash; 90.9)</td><td>86.1% (79.4 &ndash; 90.9)</td><td class="d">0</td></tr>
+        <tr><td>MRI specificity</td><td>70.8% (54.6 &ndash; 83.0)</td><td>70.8% (54.6 &ndash; 83.0)</td><td class="d">0</td></tr>
+        <tr class="sub"><td colspan="4">Absolute differences, CT &minus; MRI (delta method)</td></tr>
+        <tr><td>Sensitivity difference</td><td>0.084 (0.017 &ndash; 0.150)</td><td>0.084 (0.017 &ndash; 0.150)</td><td class="d">0</td></tr>
+        <tr><td>Specificity difference</td><td>0.153 (0.047 &ndash; 0.259)</td><td>0.153 (0.047 &ndash; 0.259)</td><td class="d">0</td></tr>
+        <tr class="sub"><td colspan="4">Each test on its own: <code>ma_CT</code> / <code>ma_MRI</code> vs <code>res$arms</code></td></tr>
+        <tr><td>CT sensitivity / specificity</td><td>94.3% (89.4 &ndash; 97.0) / 86.0% (74.0 &ndash; 93.0)</td><td>94.3% (89.4 &ndash; 97.0) / 86.0% (74.0 &ndash; 93.0)</td><td class="d">0</td></tr>
+        <tr><td>MRI sensitivity / specificity</td><td>87.6% (76.0 &ndash; 94.0) / 74.6% (55.1 &ndash; 87.5)</td><td>87.6% (76.0 &ndash; 94.0) / 74.6% (55.1 &ndash; 87.5)</td><td class="d">0</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section class="step">
+    <div class="step-head"><div class="num">3</div><h2>Separate variances: model E</h2><span>variance = "unequal"</span></div>
+    <div class="grid g3-2">
+      <div>
+        <table class="cmp" style="margin-top:0">
+          <thead><tr><th>Measure</th><th class="coch">Cochrane E (MRI block first)</th><th>easydta (CT block first)</th><th style="text-align:center">|&Delta;|</th></tr></thead>
+          <tbody>
+            <tr><td>Sensitivity difference</td><td>0.0677 (&minus;0.0176 &ndash; 0.1530)</td><td>0.0675 (&minus;0.0180 &ndash; 0.1529)</td><td class="d warn">0.0003</td></tr>
+            <tr><td>Specificity difference</td><td>0.1147 (&minus;0.0731 &ndash; 0.3024)</td><td>0.1147 (&minus;0.0732 &ndash; 0.3025)</td><td class="d warn">&lt;0.0001</td></tr>
+            <tr><td>CT sensitivity</td><td>94.3% (89.5 &ndash; 97.0)</td><td>94.3% (89.4 &ndash; 97.0)</td><td class="d warn">0.0002</td></tr>
+            <tr><td>LR test B vs E</td><td>&chi;&sup2; = 1.782, p = 0.619</td><td>&chi;&sup2; = 1.812, p = 0.612</td><td class="d warn">0.03</td></tr>
+            <tr><td>Log-likelihood (higher is better)</td><td>&minus;43.841</td><td><b>&minus;43.826</b></td><td class="d warn">0.015</td></tr>
+            <tr class="sub"><td colspan="4">Cochrane's formula with the two blocks swapped</td></tr>
+            <tr><td>All 13 model E values</td><td colspan="2" style="text-align:center">identical to easydta</td><td class="d">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <pre class="code coch"><span class="cm"># Cochrane model E, blocks swapped</span>
+E_ctfirst = <span class="f">glmer</span>(<span class="f">cbind</span>(true, n-true) ~
+    0 + seCT + seMRI + spCT + spMRI
+    + (0 + seCT + spCT |Study_ID)
+    + (0 + seMRI + spMRI |Study_ID),
+    data=Y, family=binomial)</pre>
+        <div class="pit"><b>Why the 3rd decimal moves</b>
+          Model E is the same model in both. With 5 studies the fit sits on a
+          boundary (singular random effects), where lme4's optimizer stops at a point
+          that depends on the order of the two random-effect blocks. easydta's order
+          reaches the higher log-likelihood. Models A&ndash;D, the default, are not affected.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Data: anti-CCP = the 37 studies of Cochrane Appendix 5 (<code>anti_ccp1</code> + <code>anti_ccp2</code>);
+    CT vs MRI = the 5 studies of the Appendix 12 data that evaluated both tests (<code>schuetz</code>).<br>
+    Code: Takwoingi Y et al. Supplementary material 1 to Chapter 10, Cochrane Handbook for DTA Reviews v2.0 (2023).
+    Rerun: <code>Rscript validation/compare.R</code> &middot; copy-paste scripts in <code>validation/</code>
+  </footer>
+</div>
+</body>
+</html>
