@@ -51,6 +51,17 @@
 #'   A character vector is rendered one line per element (similar to an
 #'   "add row" of free text).
 #'
+#' @param subgroup Optional study-level grouping. Either a named vector
+#'   (names = study labels, values = subgroup) or an unnamed vector in the
+#'   order of the studies in `fit`. Studies are listed under a heading per
+#'   subgroup, in order of first appearance, each subgroup with at least two
+#'   studies closed by its own pooled bivariate estimate (italic diamond row),
+#'   and the overall estimate last.
+#' @param test.subgroup Logical. With exactly two subgroups of at least two
+#'   studies each, print the likelihood-ratio test for a difference in
+#'   sensitivity and specificity between them (bivariate meta-regression,
+#'   via [dta_compare_tests()]) under the I-squared row. Default `TRUE`.
+#'
 #' @return A gtable object drawn on the current device.
 #' @examples
 #' data(anti_ccp2)
@@ -59,7 +70,8 @@
 #' @export
 dta_forest <- function(fit, test, conf = 0.95, digits = 2,
                        just = c("center", "left", "right"),
-                       title = NULL, legend = NULL) {
+                       title = NULL, legend = NULL,
+                       subgroup = NULL, test.subgroup = TRUE) {
   test_sym <- substitute(test)
   just     <- match.arg(just)
   val_x    <- switch(just, center = 0.5, left = 0.05, right = 0.95)
@@ -75,97 +87,118 @@ dta_forest <- function(fit, test, conf = 0.95, digits = 2,
   }
   stopifnot(inherits(fit, "dta_single"))
 
-  long <- fit$long
-  studs <- unique(as.character(long$studlab))
+  long   <- fit$long
+  studs  <- unique(as.character(long$studlab))
   nrow_d <- length(studs)
 
-  TP_v <- integer(nrow_d); FN_v <- integer(nrow_d)
-  TN_v <- integer(nrow_d); FP_v <- integer(nrow_d)
-  se_df <- data.frame(idx = seq_len(nrow_d),
-                      study = studs,
-                      est = NA_real_, lci = NA_real_, uci = NA_real_,
-                      stringsAsFactors = FALSE)
-  sp_df <- se_df
-
+  cnt <- data.frame(studlab = studs, TP = NA_integer_, FN = NA_integer_,
+                    TN = NA_integer_, FP = NA_integer_,
+                    stringsAsFactors = FALSE)
   for (i in seq_len(nrow_d)) {
-    s  <- studs[i]
-    rs <- long[long$studlab == s & long$sens == 1, , drop = FALSE]
-    rp <- long[long$studlab == s & long$spec == 1, , drop = FALSE]
-    TP <- as.integer(rs$true); n1 <- as.integer(rs$n); FN <- n1 - TP
-    TN <- as.integer(rp$true); n0 <- as.integer(rp$n); FP <- n0 - TN
-    TP_v[i] <- TP; FN_v[i] <- FN; TN_v[i] <- TN; FP_v[i] <- FP
-
-    se_ci <- .exact_binom_ci(TP, n1, conf)
-    sp_ci <- .exact_binom_ci(TN, n0, conf)
-    se_df[i, c("est", "lci", "uci")] <- se_ci
-    sp_df[i, c("est", "lci", "uci")] <- sp_ci
+    rs <- long[long$studlab == studs[i] & long$sens == 1, , drop = FALSE]
+    rp <- long[long$studlab == studs[i] & long$spec == 1, , drop = FALSE]
+    cnt$TP[i] <- as.integer(rs$true); cnt$FN[i] <- as.integer(rs$n) - cnt$TP[i]
+    cnt$TN[i] <- as.integer(rp$true); cnt$FP[i] <- as.integer(rp$n) - cnt$TN[i]
   }
 
-  f <- .fixed_se_sp(fit$fit)
-  se_sum <- .logit_ci(f$lsens, f$se_lsens, conf)
-  sp_sum <- .logit_ci(f$lspec, f$se_lspec, conf)
+  # Row table, top to bottom.  type: "group" (subgroup heading), "study",
+  # "subsum" (pooled estimate of one subgroup), "sum" (overall pooled).
+  mk_row <- function(type, label, js, se, sp) {
+    data.frame(type = type, label = label,
+               TP = if (length(js)) sum(cnt$TP[js]) else NA_integer_,
+               FN = if (length(js)) sum(cnt$FN[js]) else NA_integer_,
+               TN = if (length(js)) sum(cnt$TN[js]) else NA_integer_,
+               FP = if (length(js)) sum(cnt$FP[js]) else NA_integer_,
+               se_est = se[1], se_lci = se[2], se_uci = se[3],
+               sp_est = sp[1], sp_lci = sp[2], sp_uci = sp[3],
+               stringsAsFactors = FALSE, row.names = NULL)
+  }
+  study_rows <- function(js) {
+    do.call(rbind, lapply(js, function(j) mk_row(
+      "study", cnt$studlab[j], j,
+      .exact_binom_ci(cnt$TP[j], cnt$TP[j] + cnt$FN[j], conf),
+      .exact_binom_ci(cnt$TN[j], cnt$TN[j] + cnt$FP[j], conf))))
+  }
+  pooled <- function(f) {
+    list(se = .logit_ci(f$lsens, f$se_lsens, conf),
+         sp = .logit_ci(f$lspec, f$se_lspec, conf))
+  }
+  na3 <- c(NA_real_, NA_real_, NA_real_)
 
-  summary_idx <- nrow_d + 1
-  se_df <- rbind(se_df,
-                 data.frame(idx = summary_idx, study = "Summary",
-                            est = se_sum["estimate"],
-                            lci = se_sum["lci"],
-                            uci = se_sum["uci"],
-                            stringsAsFactors = FALSE))
-  sp_df <- rbind(sp_df,
-                 data.frame(idx = summary_idx, study = "Summary",
-                            est = sp_sum["estimate"],
-                            lci = sp_sum["lci"],
-                            uci = sp_sum["uci"],
-                            stringsAsFactors = FALSE))
+  sub_p <- NULL
+  if (is.null(subgroup)) {
+    rows <- study_rows(seq_len(nrow_d))
+  } else {
+    grp  <- .forest_subgroup(subgroup, studs)
+    levs <- unique(grp)
+    rows <- NULL
+    for (lv in levs) {
+      js   <- which(grp == lv)
+      rows <- rbind(rows, mk_row("group", lv, integer(0), na3, na3),
+                    study_rows(js))
+      # a subgroup summary needs at least two studies for the bivariate GLMM
+      if (length(js) >= 2) {
+        sfit <- dta_fit_single(long[long$studlab %in% studs[js], , drop = FALSE],
+                               wide = FALSE, conf = conf)
+        ps   <- pooled(.fixed_se_sp(sfit$fit))
+        rows <- rbind(rows, mk_row("subsum",
+                                   sprintf("Subtotal (k = %d)", length(js)),
+                                   js, ps$se, ps$sp))
+      }
+    }
+    # likelihood-ratio test (joint Se and Sp) between two subgroups, each
+    # with at least two studies; Cochrane Handbook DTA ch. 10 meta-regression
+    k_lev <- table(grp)[levs]
+    if (isTRUE(test.subgroup) && length(levs) == 2 && all(k_lev >= 2)) {
+      wd <- cbind(cnt, subgroup = grp)
+      sub_p <- tryCatch(
+        dta_compare_tests(wd, test_var = "subgroup",
+                          conf = conf)$compare$lr_tests$p_value[1],
+        error = function(e) NA_real_)
+    }
+  }
+  po   <- pooled(.fixed_se_sp(fit$fit))
+  rows <- rbind(rows, mk_row("sum", if (is.null(subgroup)) "Summary" else "Overall",
+                             seq_len(nrow_d), po$se, po$sp))
 
-  se_df$ypos <- (summary_idx + 1) - se_df$idx
-  sp_df$ypos <- (summary_idx + 1) - sp_df$idx
+  n_rows    <- nrow(rows)
+  rows$ypos <- (n_rows + 1) - seq_len(n_rows)
 
   fmt <- function(e, l, u, d) {
     fstr <- sprintf("%%.%df (%%.%df-%%.%df)", d, d, d)
-    sprintf(fstr, e, l, u)
+    ifelse(is.na(e), "", sprintf(fstr, e, l, u))
   }
-  se_df$txt <- fmt(se_df$est, se_df$lci, se_df$uci, digits)
-  sp_df$txt <- fmt(sp_df$est, sp_df$lci, sp_df$uci, digits)
+  face <- ifelse(rows$type %in% c("group", "sum"), "bold",
+                 ifelse(rows$type == "subsum", "italic", "plain"))
 
-  # Column totals shown on the summary row.
-  TP_sum <- sum(TP_v); FN_sum <- sum(FN_v)
-  TN_sum <- sum(TN_v); FP_sum <- sum(FP_v)
+  se_df <- data.frame(ypos = rows$ypos, type = rows$type,
+                      est = rows$se_est, lci = rows$se_lci, uci = rows$se_uci,
+                      txt = fmt(rows$se_est, rows$se_lci, rows$se_uci, digits),
+                      face = face, stringsAsFactors = FALSE)
+  sp_df <- data.frame(ypos = rows$ypos, type = rows$type,
+                      est = rows$sp_est, lci = rows$sp_lci, uci = rows$sp_uci,
+                      txt = fmt(rows$sp_est, rows$sp_lci, rows$sp_uci, digits),
+                      face = face, stringsAsFactors = FALSE)
 
-  all_studlab <- c(studs, "Summary")
-  label_df <- data.frame(
-    ypos    = se_df$ypos,
-    studlab = all_studlab[se_df$idx],
-    TP      = ifelse(se_df$idx == summary_idx, as.character(TP_sum),
-                     as.character(c(TP_v, NA)[se_df$idx])),
-    FN      = ifelse(se_df$idx == summary_idx, as.character(FN_sum),
-                     as.character(c(FN_v, NA)[se_df$idx])),
-    TN      = ifelse(se_df$idx == summary_idx, as.character(TN_sum),
-                     as.character(c(TN_v, NA)[se_df$idx])),
-    FP      = ifelse(se_df$idx == summary_idx, as.character(FP_sum),
-                     as.character(c(FP_v, NA)[se_df$idx])),
-    is_sum  = se_df$idx == summary_idx,
-    stringsAsFactors = FALSE
-  )
-  label_df$face <- ifelse(label_df$is_sum, "bold", "plain")
-  se_df$face    <- ifelse(se_df$study == "Summary", "bold", "plain")
-  sp_df$face    <- ifelse(sp_df$study == "Summary", "bold", "plain")
+  cnt_chr <- function(x) ifelse(is.na(x), "", as.character(x))
+  label_df <- data.frame(ypos = rows$ypos, studlab = rows$label,
+                         TP = cnt_chr(rows$TP), FN = cnt_chr(rows$FN),
+                         TN = cnt_chr(rows$TN), FP = cnt_chr(rows$FP),
+                         face = face, stringsAsFactors = FALSE)
 
   # y range: the I^2 annotation gets its own full row one unit below the
-  # summary (ypos = 0); the panel bottom (ylim_full[1] = -0.5) sits below
-  # that so the visible x-axis on the CI panels clears the I^2 row.
-  header_y  <- summary_idx + 1
+  # summary (ypos = 0), the subgroup test one more row below (ypos = -1);
+  # the panel bottom sits half a row below the last text row so the
+  # visible x-axis on the CI panels clears it.
+  header_y  <- n_rows + 1
   i2_y      <- 0
-  ylim_full <- c(-0.5, header_y + 0.5)
+  test_y    <- -1
+  ylim_full <- c(if (is.null(sub_p)) -0.5 else -1.5, header_y + 0.5)
 
-  # Zebra shading: stripe every other study row; never stripe the summary
-  # or the header.
-  stripe_idx <- seq_len(nrow_d)
-  stripe_idx <- stripe_idx[stripe_idx %% 2L == 1L]
-  zebra_df <- data.frame(
-    ypos = (summary_idx + 1) - stripe_idx
-  )
+  # Zebra shading: stripe every other study row; never stripe summaries,
+  # subgroup headings or the header.
+  study_y  <- rows$ypos[rows$type == "study"]
+  zebra_df <- data.frame(ypos = study_y[seq_along(study_y) %% 2L == 1L])
 
   zebra_layer <- function() {
     ggplot2::geom_rect(
@@ -262,6 +295,14 @@ dta_forest <- function(fit, test, conf = 0.95, digits = 2,
     ggplot2::annotate("text", x = x_studlab, y = i2_y,
                       label = i2_biv_text, hjust = 0,
                       size = i2_size) +
+    (if (!is.null(sub_p))
+      ggplot2::annotate("text", x = x_studlab, y = test_y,
+                        label = if (is.na(sub_p))
+                          "Test for subgroup differences: not estimable"
+                        else sprintf("Test for subgroup differences: p %s",
+                                     if (sub_p < 0.001) "< 0.001"
+                                     else sprintf("= %.3f", sub_p)),
+                        hjust = 0, size = i2_size)) +
     ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim_full) +
     ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2)) +
     base_theme + invisible_axis_theme
@@ -290,10 +331,11 @@ dta_forest <- function(fit, test, conf = 0.95, digits = 2,
   # (breaks/ticks/text) is preserved. A dashed reference line passes
   # through the centre of the summary diamond.
   make_panel <- function(df) {
-    df$is_sum <- df$study == "Summary"
-    df$point_shape <- ifelse(df$is_sum, 18L, 15L)  # diamond vs filled square
-    df$point_size  <- ifelse(df$is_sum, 4, 2)
-    sum_est <- df$est[df$is_sum]
+    sum_est <- df$est[df$type == "sum"]
+    df <- df[!is.na(df$est), , drop = FALSE]
+    df$point_shape <- ifelse(df$type == "study", 15L, 18L)  # square vs diamond
+    df$point_size  <- ifelse(df$type == "sum", 4,
+                             ifelse(df$type == "subsum", 3.2, 2))
     ggplot2::ggplot(df, ggplot2::aes(x = est, y = ypos)) +
       zebra_layer() +
       ggplot2::geom_vline(xintercept = sum_est,
@@ -377,4 +419,17 @@ dta_forest <- function(fit, test, conf = 0.95, digits = 2,
   grid::popViewport()
 
   invisible(g)
+}
+
+# Resolve the `subgroup` argument of dta_forest() to one value per study.
+.forest_subgroup <- function(subgroup, studs) {
+  if (!is.null(names(subgroup))) {
+    miss <- setdiff(studs, names(subgroup))
+    if (length(miss))
+      stop("`subgroup` has no value for: ", paste(miss, collapse = ", "))
+    return(as.character(subgroup[studs]))
+  }
+  if (length(subgroup) != length(studs))
+    stop("unnamed `subgroup` must have one value per study (", length(studs), ").")
+  as.character(subgroup)
 }

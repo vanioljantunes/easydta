@@ -11,7 +11,9 @@ dta_forest(
   digits = 2,
   just = c("center", "left", "right"),
   title = NULL,
-  legend = NULL
+  legend = NULL,
+  subgroup = NULL,
+  test.subgroup = TRUE
 )
 }
 \arguments{
@@ -38,6 +40,18 @@ its own column.}
 \item{legend}{Optional legend text shown left-aligned below the plot.
 A character vector is rendered one line per element (similar to an
 "add row" of free text).}
+
+\item{subgroup}{Optional study-level grouping. Either a named vector
+(names = study labels, values = subgroup) or an unnamed vector in the
+order of the studies in \code{fit}. Studies are listed under a heading per
+subgroup, in order of first appearance, each subgroup with at least two
+studies closed by its own pooled bivariate estimate (italic diamond row),
+and the overall estimate last.}
+
+\item{test.subgroup}{Logical. With exactly two subgroups of at least two
+studies each, print the likelihood-ratio test for a difference in
+sensitivity and specificity between them (bivariate meta-regression,
+via \code{\link[=dta_compare_tests]{dta_compare_tests()}}) under the I-squared row. Default \code{TRUE}.}
 }
 \value{
 A gtable object drawn on the current device.
