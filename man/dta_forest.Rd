@@ -13,7 +13,9 @@ dta_forest(
   title = NULL,
   legend = NULL,
   subgroup = NULL,
-  test.subgroup = TRUE
+  test.subgroup = TRUE,
+  columns = NULL,
+  overall = TRUE
 )
 }
 \arguments{
@@ -52,6 +54,16 @@ and the overall estimate last.}
 studies each, print the likelihood-ratio test for a difference in
 sensitivity and specificity between them (bivariate meta-regression,
 via \code{\link[=dta_compare_tests]{dta_compare_tests()}}) under the I-squared row. Default \code{TRUE}.}
+
+\item{columns}{Optional data frame of extra per-study columns drawn
+between the study label and the 2x2 counts (for example method, test
+type and cutoff). One row per study, matched by a \code{studlab} column when
+present, otherwise in the order of the studies in \code{fit}. Column names
+are the headers. A column named \code{Study} replaces the displayed label.}
+
+\item{overall}{Logical. \code{FALSE} drops the overall pooled row, its
+reference line and the I-squared row, for forests whose subgroups
+should not be pooled together. Default \code{TRUE}.}
 }
 \value{
 A gtable object drawn on the current device.
