@@ -167,6 +167,22 @@ dta_sroc(fit, test.label = "anti-CCP2",
          population = "adults")
 ```
 
+### Leave-one-out sensitivity analysis
+
+```r
+# Refit once per omitted study (meta::metainf() style); prints a table of
+# Sens, Spec, AUC, LR+ and LR- (95% CI) per omission plus the pooled row.
+loo <- dta_loo(fit)            # auc_ci = FALSE skips the AUC bootstrap
+print(loo)
+
+# One figure: the leave-one-out forest on top (letter-coded rows, Sens and
+# Spec CI panels, AUC / LR+ / LR- text columns) and beneath it an
+# unlabelled sROC with one coloured curve per omission -- each study point
+# is drawn as its row letter, in the colour of the curve fitted without it.
+plot(loo)                      # or dta_loo_forest(fit)
+dta_loo_forest(loo, sroc = FALSE)   # forest only
+```
+
 The vignette: [`examples/example_single.Rmd`](examples/example_single.Rmd).
 
 ### Tidy summaries
@@ -256,6 +272,18 @@ The differences table reports per-arm Sens, Spec and AUC (each with
   give the dAUC CI and a two-sided p-value. Arms are drawn independently,
   so the dAUC CI is mildly conservative. The per-panel AUC boxes reuse the
   same numbers.
+
+### Leave-one-out sensitivity analysis
+
+```r
+# Both arms of the omitted study are dropped together; each row gives the
+# difference .e - .c in Sens, Spec, AUC, LR+ and LR- (95% CI) with its
+# p-value (Sens / Spec: LR test; AUC: MVN bootstrap; LR+/-: delta-method
+# Wald). The figure draws one sROC panel per arm below the forest.
+loo <- dta_loo(res)
+print(loo)
+plot(loo)
+```
 
 The vignette: [`examples/example_pairwise.Rmd`](examples/example_pairwise.Rmd).
 
