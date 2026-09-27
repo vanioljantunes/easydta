@@ -299,7 +299,10 @@ dta_forest_pair <- function(x,
 
     p_diff <- ggplot2::ggplot(d, ggplot2::aes(x = est, y = ypos)) +
       zebra +
-      ggplot2::geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
+      # reference line stops under the header row so it never crosses the block title
+      ggplot2::annotate("segment", x = 0, xend = 0,
+                        y = ylim_full[1], yend = header_y - 0.5,
+                        colour = "grey40", linewidth = 0.4) +
       { if (measure_label == "forest")
           ggplot2::annotate("text", x = 0, y = header_y,
                             label = measure_title[[m]],
