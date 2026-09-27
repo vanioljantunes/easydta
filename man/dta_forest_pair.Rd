@@ -19,7 +19,9 @@ dta_forest_pair(
   title = NULL,
   legend = NULL,
   measure_label = c("left", "forest"),
-  border = FALSE
+  border = FALSE,
+  diff_label = "Difference (95\% CI)",
+  pad = grid::unit(12, "pt")
 )
 }
 \arguments{
@@ -51,7 +53,9 @@ difference plot and the difference values. Defaults to
 \code{c(1.6, 0.4, 0.4, 0.5, 1.15, 0.4, 0.4, 0.5, 1.15, 1.8, 1.4)}. When
 \code{counts = FALSE} the four count columns are dropped.}
 
-\item{title}{Optional plot title, rendered left-aligned above the blocks.}
+\item{title}{Optional title, rendered in bold under the axis of every
+block, inside the block, like the x-axis label of a forest plot. Nothing
+is drawn above the figure.}
 
 \item{legend}{Optional legend text shown left-aligned below the blocks.
 When \code{NULL} a one-line note on the interval method is written for you;
@@ -64,6 +68,13 @@ line.}
 
 \item{border}{Draw a rectangle around each measure block (default
 \code{FALSE}).}
+
+\item{diff_label}{Header of the difference column (default
+\code{"Difference (95\% CI)"}).}
+
+\item{pad}{Horizontal padding on each side of the figure, a grid unit
+(default \code{grid::unit(12, "pt")}), so the study labels and the last column
+do not touch the device edge.}
 }
 \value{
 A gtable object, drawn on the current device.

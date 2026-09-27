@@ -78,7 +78,14 @@
 #'   difference plot and the difference values. Defaults to
 #'   `c(1.6, 0.4, 0.4, 0.5, 1.15, 0.4, 0.4, 0.5, 1.15, 1.8, 1.4)`. When
 #'   `counts = FALSE` the four count columns are dropped.
-#' @param title   Optional plot title, rendered left-aligned above the blocks.
+#' @param title   Optional title, rendered in bold under the axis of every
+#'   block, inside the block, like the x-axis label of a forest plot. Nothing
+#'   is drawn above the figure.
+#' @param diff_label Header of the difference column (default
+#'   `"Difference (95% CI)"`).
+#' @param pad     Horizontal padding on each side of the figure, a grid unit
+#'   (default `grid::unit(12, "pt")`), so the study labels and the last column
+#'   do not touch the device edge.
 #' @param legend  Optional legend text shown left-aligned below the blocks.
 #'   When `NULL` a one-line note on the interval method is written for you;
 #'   pass `NA` to suppress it.
@@ -109,7 +116,9 @@ dta_forest_pair <- function(x,
                                        0.4, 0.4, 0.5, 1.15, 1.8, 1.4),
                             title = NULL, legend = NULL,
                             measure_label = c("left", "forest"),
-                            border = FALSE) {
+                            border = FALSE,
+                            diff_label = "Difference (95% CI)",
+                            pad = grid::unit(12, "pt")) {
 
   if (!inherits(x, c("dta_pairwise_result", "dta_compare")))
     stop("`x` must be a dta_pairwise_result (dta_pairwise / dta_compare_tests).")
@@ -334,7 +343,7 @@ dta_forest_pair <- function(x,
       text_panel("est_c", est_title, x = 0.5, hjust = 0.5),
       text_panel("ci_c", paste0(100 * conf, "% CI")),
       p_diff,
-      text_panel("txt_d", "Effect Size (95% CI)"))
+      text_panel("txt_d", diff_label))
 
     w <- widths[keep]
     body <- gridExtra::arrangeGrob(
@@ -367,15 +376,29 @@ dta_forest_pair <- function(x,
     body_h <- grid::unit((ylim_full[2] - ylim_full[1]) * row_in, "inches") +
               grid::unit(axis_pad_in, "inches")
 
+    block_grobs   <- list(spanner, body)
+    block_heights <- list(span_h, body_h)
+    if (!is.null(title)) {
+      # the title sits under the axis like an x-axis label, inside the block
+      title_fontsize <- 10
+      block_grobs   <- c(block_grobs,
+                         list(grid::textGrob(title, x = grid::unit(0.5, "npc"),
+                                             y = grid::unit(0.6, "npc"),
+                                             hjust = 0.5, vjust = 0.5,
+                                             gp = grid::gpar(fontface = "bold",
+                                                             fontsize = title_fontsize))))
+      block_heights <- c(block_heights,
+                         list(grid::unit(1.8 * title_fontsize, "points")))
+    }
     block <- gridExtra::arrangeGrob(
-      grobs = list(spanner, body), ncol = 1,
-      heights = grid::unit.c(span_h, body_h))
+      grobs = block_grobs, ncol = 1,
+      heights = do.call(grid::unit.c, block_heights))
     if (border)
       block <- grid::grobTree(
         block,
         grid::rectGrob(gp = grid::gpar(fill = NA, col = "grey30",
                                        lwd = 1)))
-    block_h <- span_h + body_h
+    block_h <- Reduce(`+`, block_heights)
 
     if (measure_label == "left") {
       blocks  <- c(blocks,  list(m_grob, block))
@@ -395,15 +418,6 @@ dta_forest_pair <- function(x,
   if (length(legend) == 1 && is.na(legend)) legend <- NULL
 
   grobs <- blocks
-  if (!is.null(title)) {
-    title_fontsize <- 12
-    grobs   <- c(list(grid::textGrob(title, x = grid::unit(0.5, "npc"),
-                                     hjust = 0.5,
-                                     gp = grid::gpar(fontface = "bold",
-                                                     fontsize = title_fontsize))),
-                 grobs)
-    heights <- c(list(grid::unit(1.8 * title_fontsize, "points")), heights)
-  }
   if (!is.null(legend)) {
     leg_txt      <- paste(legend, collapse = "\n")
     n_lines      <- length(strsplit(leg_txt, "\n", fixed = TRUE)[[1]])
@@ -424,7 +438,7 @@ dta_forest_pair <- function(x,
   grid::grid.newpage()
   grid::pushViewport(grid::viewport(
     x = grid::unit(0.5, "npc"), y = grid::unit(0.5, "npc"), just = "centre",
-    height = total_h, width = grid::unit(1, "npc")))
+    height = total_h, width = grid::unit(1, "npc") - 2 * pad))
   grid::grid.draw(g)
   grid::popViewport()
 
