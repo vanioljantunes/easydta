@@ -78,9 +78,10 @@
 #'   difference plot and the difference values. Defaults to
 #'   `c(1.6, 0.4, 0.4, 0.5, 1.15, 0.4, 0.4, 0.5, 1.15, 1.8, 1.4)`. When
 #'   `counts = FALSE` the four count columns are dropped.
-#' @param title   Optional title, rendered in bold under the axis of every
-#'   block, inside the block, like the x-axis label of a forest plot. Nothing
-#'   is drawn above the figure.
+#' @param title   Optional title, rendered in bold under the forest scale of
+#'   every block, inside the block and centred on the CI column, like the
+#'   x-axis label of a forest plot. A title without a line break is broken
+#'   after the first " for ". Nothing is drawn above the figure.
 #' @param diff_label Header of the difference column (default
 #'   `"Difference (95% CI)"`).
 #' @param pad     Horizontal padding on each side of the figure, a grid unit
@@ -379,16 +380,26 @@ dta_forest_pair <- function(x,
     block_grobs   <- list(spanner, body)
     block_heights <- list(span_h, body_h)
     if (!is.null(title)) {
-      # the title sits under the axis like an x-axis label, inside the block
+      # the title sits under the forest scale like an x-axis label, inside the
+      # block, centred on the CI column; a long title breaks after " for "
       title_fontsize <- 10
-      block_grobs   <- c(block_grobs,
-                         list(grid::textGrob(title, x = grid::unit(0.5, "npc"),
-                                             y = grid::unit(0.6, "npc"),
-                                             hjust = 0.5, vjust = 0.5,
-                                             gp = grid::gpar(fontface = "bold",
-                                                             fontsize = title_fontsize))))
+      title_txt <- if (grepl("\n", title, fixed = TRUE)) title else
+                     sub(" for ", " for\n", title, fixed = TRUE)
+      n_title_lines <- length(strsplit(title_txt, "\n", fixed = TRUE)[[1]])
+      title_grob <- grid::textGrob(title_txt, x = grid::unit(0.5, "npc"),
+                                   y = grid::unit(1, "npc") - grid::unit(2, "pt"),
+                                   hjust = 0.5, vjust = 1,
+                                   gp = grid::gpar(fontface = "bold",
+                                                   fontsize = title_fontsize,
+                                                   lineheight = 1.1))
+      title_row <- gridExtra::arrangeGrob(
+        grobs = list(grid::nullGrob(), title_grob, grid::nullGrob()),
+        ncol = 3,
+        widths = c(sum(w[seq_len(length(w) - 2)]), w[length(w) - 1], w[length(w)]))
+      block_grobs   <- c(block_grobs, list(title_row))
       block_heights <- c(block_heights,
-                         list(grid::unit(1.8 * title_fontsize, "points")))
+                         list(grid::unit(1.3 * title_fontsize * n_title_lines + 6,
+                                         "points")))
     }
     block <- gridExtra::arrangeGrob(
       grobs = block_grobs, ncol = 1,

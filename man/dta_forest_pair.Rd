@@ -53,9 +53,10 @@ difference plot and the difference values. Defaults to
 \code{c(1.6, 0.4, 0.4, 0.5, 1.15, 0.4, 0.4, 0.5, 1.15, 1.8, 1.4)}. When
 \code{counts = FALSE} the four count columns are dropped.}
 
-\item{title}{Optional title, rendered in bold under the axis of every
-block, inside the block, like the x-axis label of a forest plot. Nothing
-is drawn above the figure.}
+\item{title}{Optional title, rendered in bold under the forest scale of
+every block, inside the block and centred on the CI column, like the
+x-axis label of a forest plot. A title without a line break is broken
+after the first " for ". Nothing is drawn above the figure.}
 
 \item{legend}{Optional legend text shown left-aligned below the blocks.
 When \code{NULL} a one-line note on the interval method is written for you;
