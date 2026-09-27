@@ -17,6 +17,10 @@ dta_sroc_pair(
   B = 2000,
   conf = 0.95,
   ncol = 2,
+  group.e = NULL,
+  group.c = NULL,
+  group.name = "subgroup",
+  lr.show = FALSE,
   ...
 )
 }
@@ -51,8 +55,21 @@ the bootstrap is much faster and useful for previewing.}
 
 \item{ncol}{Number of columns for the SROC panel row (default 2).}
 
+\item{group.e, group.c}{Optional per-arm subgroup of the studies (a vector
+named by study label, as in \code{dta_sroc()}'s \code{group}).  When given, each
+arm becomes a subgroup figure (square panel, no summary box or legend,
+"By <group.name> (p = X)" over one table per level beneath it) and the
+two figures sit side by side; the differences table is not drawn.
+Default \code{NULL}.}
+
+\item{group.name}{Subgroup variable name for the table titles.}
+
+\item{lr.show}{Show LR+ / LR- rows in the subgroup tables (default
+\code{FALSE}).}
+
 \item{...}{Extra arguments forwarded to both \code{dta_sroc()} calls
-(e.g. \code{labels}, \code{pred}).  \code{auc_ci} is set automatically from \code{auc_ic}
+(e.g. \code{labels}, \code{pred}, \code{shapes}, \code{colors}, \code{legend.pos},
+\code{legend.style}).  \code{auc_ci} is set automatically from \code{auc_ic}
 and should not be overridden.}
 }
 \value{

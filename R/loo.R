@@ -312,10 +312,10 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
 }
 
 # Display table: one text column per measure (and per p-value).
-.loo_display <- function(x, digits = 2) {
+.loo_display <- function(x, digits = 2, lr.show = FALSE) {
   t <- x$table
   lab <- ifelse(t$pooled, t$studlab, paste("Omitting", t$studlab))
-  if (x$type == "single") {
+  out <- if (x$type == "single") {
     data.frame(
       Study  = lab,
       Sens   = .loo_fmt_ci(t$sens, t$sens_lci, t$sens_uci, digits),
@@ -339,10 +339,17 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
       `p    `  = .loo_fmt_p(t$p_lrn),
       check.names = FALSE, stringsAsFactors = FALSE)
   }
+  # LR+/LR- are always computed (x$table); shown only when lr.show = TRUE
+  if (!isTRUE(lr.show)) {
+    keep <- if (x$type == "single") !names(out) %in% c("LR+", "LR-")
+            else !names(out) %in% c("dLR+", "p   ", "dLR-", "p    ")
+    out <- out[, keep, drop = FALSE]
+  }
+  out
 }
 
 #' @export
-print.dta_loo <- function(x, digits = 2, ...) {
+print.dta_loo <- function(x, digits = 2, lr.show = FALSE, ...) {
   cat("<dta_loo>  Leave-one-out sensitivity analysis\n")
   if (x$type == "single") {
     cat("  Studies: ", length(x$studies), "   ", 100 * x$conf,
@@ -353,7 +360,7 @@ print.dta_loo <- function(x, digits = 2, ...) {
         "  Studies: ", length(x$studies), "   ", 100 * x$conf,
         "% CI in brackets\n\n", sep = "")
   }
-  print(.loo_display(x, digits), row.names = FALSE, right = FALSE)
+  print(.loo_display(x, digits, lr.show), row.names = FALSE, right = FALSE)
   invisible(x)
 }
 
@@ -381,9 +388,12 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' @param x       A `dta_loo` object, or a `dta_single` /
 #'   `dta_pairwise_result` (then [dta_loo()] is run first; `...` is
 #'   forwarded to it).
-#' @param table   Logical. Show the summary table below the panels?
-#'   Default `TRUE`.
+#' @param table   Logical. Show the summary table? Default `TRUE`.
+#' @param table.position Where the table sits relative to the sROC
+#'   panel(s): `"below"` (default), `"right"`, `"left"` or `"above"`.
 #' @param digits  Display digits for the table (default 2).
+#' @param lr.show Logical. Show the LR+ / LR- columns? They are always
+#'   computed (see `x$table`); default `FALSE` keeps the table compact.
 #' @param ...     Forwarded to [dta_loo()] when `x` is not a `dta_loo`.
 #'
 #' @return A `gtable` of class `"dta_loo_plot"`; its `print()` method draws
@@ -397,7 +407,14 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' dta_loo_plot(fit, auc_ci = FALSE)
 #' }
 #' @export
-dta_loo_plot <- function(x, table = TRUE, digits = 2, ...) {
+dta_loo_plot <- function(x, table = TRUE,
+                         table.position = c("below", "right", "left", "above"),
+                         digits = 2, lr.show = FALSE, ...) {
+  # tolerate the informal spellings "bellow" / "up"
+  table.position <- switch(as.character(table.position[1]),
+                           bellow = "below", up = "above", table.position[1])
+  table.position <- match.arg(table.position,
+                              c("below", "right", "left", "above"))
   if (!inherits(x, "dta_loo")) x <- dta_loo(x, ...)
   loo  <- x
   k    <- length(loo$studies)
@@ -422,7 +439,7 @@ dta_loo_plot <- function(x, table = TRUE, digits = 2, ...) {
   }
 
   tbl_df <- cbind(data.frame(" " = loo$table$letter, check.names = FALSE),
-                  .loo_display(loo, digits))
+                  .loo_display(loo, digits, lr.show))
   # console print keeps ASCII "d"; the drawn table uses the delta sign
   names(tbl_df) <- sub("^d(Sens|Spec|AUC|LR)", "Δ\\1", names(tbl_df))
   if (isTRUE(table)) {
@@ -442,9 +459,18 @@ dta_loo_plot <- function(x, table = TRUE, digits = 2, ...) {
     # grobHeight() undercounts a gtable; sum the row heights instead so the
     # band always fits the whole table (plus a small margin).
     tbl_h <- sum(tbl_grob$heights) + grid::unit(40, "pt")
-    g <- gridExtra::arrangeGrob(panels, tbl_grob, nrow = 2,
-                                heights = grid::unit.c(
-                                  grid::unit(1, "npc") - tbl_h, tbl_h))
+    tbl_w <- sum(tbl_grob$widths)  + grid::unit(40, "pt")
+    rest_h <- grid::unit(1, "npc") - tbl_h
+    rest_w <- grid::unit(1, "npc") - tbl_w
+    g <- switch(table.position,
+      below = gridExtra::arrangeGrob(panels, tbl_grob, nrow = 2,
+                                     heights = grid::unit.c(rest_h, tbl_h)),
+      above = gridExtra::arrangeGrob(tbl_grob, panels, nrow = 2,
+                                     heights = grid::unit.c(tbl_h, rest_h)),
+      right = gridExtra::arrangeGrob(panels, tbl_grob, ncol = 2,
+                                     widths = grid::unit.c(rest_w, tbl_w)),
+      left  = gridExtra::arrangeGrob(tbl_grob, panels, ncol = 2,
+                                     widths = grid::unit.c(tbl_w, rest_w)))
   } else {
     g <- panels
   }

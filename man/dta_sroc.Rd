@@ -10,17 +10,26 @@ dta_sroc(
   outcome = "outcome",
   population = "population",
   ci = TRUE,
-  pred = TRUE,
+  pred = NULL,
   labels = FALSE,
   group = NULL,
   group.suffix = " studies",
   shapes = c(1, 0, 5, 6, 4),
+  colors = c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00"),
+  legend.pos = c("bottom", "bottomleft", "topright"),
+  legend.style = c("auto", "box", "compact", "none"),
   title.size = 11,
   auc = TRUE,
   auc_ci = TRUE,
   B = 2000,
   conf = 0.95,
   n_grid = 200,
+  summary = NULL,
+  group.name = "subgroup",
+  group.curves = TRUE,
+  group.table = TRUE,
+  lr.show = FALSE,
+  panel.scale = 1.4,
   auc_override = NULL
 )
 }
@@ -37,7 +46,9 @@ dta_sroc(
 
 \item{ci}{Draw the 95\% confidence region?  (default TRUE)}
 
-\item{pred}{Draw the 95\% prediction region?  (default TRUE; drawn
+\item{pred}{Draw the 95\% prediction region?  (default \code{NULL}: drawn
+in the plain plot, not in the subgroup figure; pass \code{TRUE} / \code{FALSE} to
+force; drawn
 as a red dotted loop to distinguish it from the dashed CI region).}
 
 \item{labels}{Logical. Print study labels next to each triangle?
@@ -45,10 +56,14 @@ as a red dotted loop to distinguish it from the dashed CI region).}
 to overlap each other and the sROC curve -- they never reposition the
 underlying study points.}
 
-\item{group}{Optional grouping of the study points, as a vector named
-by study label (or an unnamed vector in study order).  Each level gets its
-own plot symbol and its own legend row.  \code{NA} entries keep the default
-triangle.  Default \code{NULL} (all studies drawn alike).}
+\item{group}{Optional subgroup of the studies, as a vector named by
+study label (or an unnamed vector in study order).  Each level gets its
+own plot symbol and colour, its own dashed sROC curve and summary point
+(refitted on its studies), and, with \code{group.table = TRUE}, the figure
+becomes a panel over a title "By <group.name> (p = X)" -- X the
+likelihood-ratio test for subgroup differences -- and one summary table
+per level spanning the panel width.  \code{NA} entries keep the default
+symbol.  Default \code{NULL}.}
 
 \item{group.suffix}{Text appended to each group level in the legend
 (default \code{" studies"}, so \code{"curvilinear"} reads \code{"curvilinear studies"}).}
@@ -56,6 +71,20 @@ triangle.  Default \code{NULL} (all studies drawn alike).}
 \item{shapes}{Plot symbols used for the \code{group} levels, in order
 (default open circle, open square, open diamond, open triangle-down,
 cross).}
+
+\item{colors}{Point colours for the \code{group} levels, in order or named
+by level (like \code{shapes}).  Defaults to a colour-blind-safe palette so
+grouped points differ by colour as well as symbol; ignored when \code{group}
+is \code{NULL}.}
+
+\item{legend.pos}{Where the symbol legend box sits: \code{"bottom"} (bottom
+centre, the default), \code{"bottomleft"}, or \code{"topright"}.}
+
+\item{legend.style}{\code{"auto"} (the default) draws the compact borderless
+coloured legend when \code{group} is given and the full boxed legend
+otherwise; \code{"box"} forces the boxed legend (group rows included);
+\code{"compact"} forces the compact group-only legend; \code{"none"} draws no
+legend at all.}
 
 \item{title.size}{Font size of the two-line plot title (default 11;
 \code{dta_sroc_pair()} drops it to 10 for the half-width panels).}
@@ -71,10 +100,32 @@ cross).}
 \item{conf}{Confidence level (default 0.95).}
 
 \item{n_grid}{Grid size for the SROC curve (default 200).}
+
+\item{summary}{Draw the in-plot summary box? Default \code{NULL}: yes for
+the plain plot, no when \code{group} is given.}
+
+\item{group.name}{Name of the subgroup variable shown in the table title
+(default \code{"subgroup"}).}
+
+\item{group.curves}{Draw one dashed sROC curve + summary point per level?
+Default \code{TRUE}.}
+
+\item{group.table}{Build the subgroup figure (tables under the panel)?
+Default \code{TRUE}; \code{FALSE} returns the plain ggplot with coloured points.}
+
+\item{lr.show}{Show LR+ / LR- rows in the subgroup tables? Always
+computed; default \code{FALSE}.}
+
+\item{panel.scale}{Width of the sROC panel relative to the natural width
+of the row of tables (default 1.4).}
 }
 \value{
 A ggplot object; if \code{auc = TRUE}, \code{attr(x, "AUC")} holds the AUC
-point estimate and \code{attr(x, "AUC_CI")} holds the CI.
+point estimate and \code{attr(x, "AUC_CI")} holds the CI.  With \code{group} and
+\code{group.table = TRUE}, a \code{gtable} of class \code{"dta_sroc_group"} (panel +
+tables; \code{attr(., "panel")} is the ggplot, \code{attr(., "tables")} the
+per-level data frames, \code{attr(., "p_subgroup")} the test p-value) whose
+\code{print()} method draws it centred on the device.
 }
 \description{
 SROC plot with 95\% confidence and prediction regions + AUC

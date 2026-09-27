@@ -4,17 +4,29 @@
 \alias{dta_loo_plot}
 \title{Leave-one-out sROC panels with summary table}
 \usage{
-dta_loo_plot(x, table = TRUE, digits = 2, ...)
+dta_loo_plot(
+  x,
+  table = TRUE,
+  table.position = c("below", "right", "left", "above"),
+  digits = 2,
+  lr.show = FALSE,
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{dta_loo} object, or a \code{dta_single} /
 \code{dta_pairwise_result} (then \code{\link[=dta_loo]{dta_loo()}} is run first; \code{...} is
 forwarded to it).}
 
-\item{table}{Logical. Show the summary table below the panels?
-Default \code{TRUE}.}
+\item{table}{Logical. Show the summary table? Default \code{TRUE}.}
+
+\item{table.position}{Where the table sits relative to the sROC
+panel(s): \code{"below"} (default), \code{"right"}, \code{"left"} or \code{"above"}.}
 
 \item{digits}{Display digits for the table (default 2).}
+
+\item{lr.show}{Logical. Show the LR+ / LR- columns? They are always
+computed (see \code{x$table}); default \code{FALSE} keeps the table compact.}
 
 \item{...}{Forwarded to \code{\link[=dta_loo]{dta_loo()}} when \code{x} is not a \code{dta_loo}.}
 }

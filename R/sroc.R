@@ -31,16 +31,34 @@
 #'   "population"). The title is rendered as
 #'   `sROC of <test.label> to predict <outcome> in <population>`.
 #' @param ci          Draw the 95% confidence region?  (default TRUE)
-#' @param pred        Draw the 95% prediction region?  (default TRUE; drawn
+#' @param pred        Draw the 95% prediction region?  (default `NULL`: drawn
+#'   in the plain plot, not in the subgroup figure; pass `TRUE` / `FALSE` to
+#'   force; drawn
 #'   as a red dotted loop to distinguish it from the dashed CI region).
 #' @param labels      Logical. Print study labels next to each triangle?
 #'   (default FALSE).  Labels are drawn on top of the panel and are allowed
 #'   to overlap each other and the sROC curve -- they never reposition the
 #'   underlying study points.
-#' @param group       Optional grouping of the study points, as a vector named
-#'   by study label (or an unnamed vector in study order).  Each level gets its
-#'   own plot symbol and its own legend row.  `NA` entries keep the default
-#'   triangle.  Default `NULL` (all studies drawn alike).
+#' @param group       Optional subgroup of the studies, as a vector named by
+#'   study label (or an unnamed vector in study order).  Each level gets its
+#'   own plot symbol and colour, its own dashed sROC curve and summary point
+#'   (refitted on its studies), and, with `group.table = TRUE`, the figure
+#'   becomes a panel over a title "By <group.name> (p = X)" -- X the
+#'   likelihood-ratio test for subgroup differences -- and one summary table
+#'   per level spanning the panel width.  `NA` entries keep the default
+#'   symbol.  Default `NULL`.
+#' @param summary     Draw the in-plot summary box? Default `NULL`: yes for
+#'   the plain plot, no when `group` is given.
+#' @param group.name  Name of the subgroup variable shown in the table title
+#'   (default `"subgroup"`).
+#' @param group.curves Draw one dashed sROC curve + summary point per level?
+#'   Default `TRUE`.
+#' @param group.table Build the subgroup figure (tables under the panel)?
+#'   Default `TRUE`; `FALSE` returns the plain ggplot with coloured points.
+#' @param lr.show     Show LR+ / LR- rows in the subgroup tables? Always
+#'   computed; default `FALSE`.
+#' @param panel.scale Width of the sROC panel relative to the natural width
+#'   of the row of tables (default 1.4).
 #' @param group.suffix Text appended to each group level in the legend
 #'   (default `" studies"`, so `"curvilinear"` reads `"curvilinear studies"`).
 #' @param shapes      Plot symbols used for the `group` levels, in order
@@ -68,7 +86,11 @@
 #' @param n_grid      Grid size for the SROC curve (default 200).
 #'
 #' @return A ggplot object; if `auc = TRUE`, `attr(x, "AUC")` holds the AUC
-#'   point estimate and `attr(x, "AUC_CI")` holds the CI.
+#'   point estimate and `attr(x, "AUC_CI")` holds the CI.  With `group` and
+#'   `group.table = TRUE`, a `gtable` of class `"dta_sroc_group"` (panel +
+#'   tables; `attr(., "panel")` is the ggplot, `attr(., "tables")` the
+#'   per-level data frames, `attr(., "p_subgroup")` the test p-value) whose
+#'   `print()` method draws it centred on the device.
 #' @examples
 #' data(anti_ccp2)
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
@@ -80,7 +102,7 @@ dta_sroc <- function(fit,
                      outcome    = "outcome",
                      population = "population",
                      ci    = TRUE,
-                     pred  = TRUE,
+                     pred  = NULL,
                      labels = FALSE,
                      group  = NULL,
                      group.suffix = " studies",
@@ -95,6 +117,12 @@ dta_sroc <- function(fit,
                      B     = 2000,
                      conf  = 0.95,
                      n_grid = 200,
+                     summary = NULL,
+                     group.name = "subgroup",
+                     group.curves = TRUE,
+                     group.table = TRUE,
+                     lr.show = FALSE,
+                     panel.scale = 1.4,
                      auc_override = NULL) {
   stopifnot(inherits(fit, "dta_single"))
   legend.pos   <- match.arg(legend.pos)
@@ -153,6 +181,27 @@ dta_sroc <- function(fit,
       stop("`colors` has no colour for: ",
            paste(grp_lv[is.na(grp_col)], collapse = ", "))
     names(grp_col) <- grp_lv
+  }
+
+  # The in-plot summary box is on by default, off when subgroups are drawn
+  # (their numbers go into the tables beneath the panel).
+  if (is.null(summary)) summary <- length(grp_lv) == 0
+  # ... and so is the legend: the level names head the tables.
+  grouped_fig <- length(grp_lv) > 0 && isTRUE(group.table)
+  if (grouped_fig && legend.style == "auto") legend.style <- "none"
+  # prediction region: on for the plain plot, off in the subgroup figure
+  # (per-level curves already crowd the panel); pass `pred` to override
+  if (is.null(pred)) pred <- !grouped_fig
+
+  # Subgroup layer: refit each level on its own studies for a per-level sROC
+  # curve + summary point (drawn in the level colour) and the summary tables.
+  grp_fits <- list(); grp_curves <- NULL; grp_summ <- NULL
+  if (length(grp_lv) && (isTRUE(group.curves) || isTRUE(group.table))) {
+    grp_fits <- .sroc_subgroup_fits(fit, pts$grp, grp_lv, conf)
+    if (isTRUE(group.curves)) {
+      cg <- .sroc_subgroup_curves(grp_fits, fpr_grid)
+      grp_curves <- cg$curves; grp_summ <- cg$summary
+    }
   }
 
   centre <- c(f$lsens, f$lspec)
@@ -306,8 +355,12 @@ dta_sroc <- function(fit,
   lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = n_lg)
 
   # Two lines: the title has to fit inside a half-width panel in dta_sroc_pair.
-  title_text <- sprintf("sROC of %s\nto predict %s in %s",
-                        test.label, outcome, population)
+  title_text <- if (grouped_fig) {
+    # the subgroup figure is only as wide as its tables: three short lines
+    sprintf("sROC of %s\nto predict %s\nin %s", test.label, outcome, population)
+  } else {
+    sprintf("sROC of %s\nto predict %s in %s", test.label, outcome, population)
+  }
 
   # ---- Build plot ----------------------------------------------------------
   p <- ggplot2::ggplot()
@@ -348,6 +401,18 @@ dta_sroc <- function(fit,
                                  colour = grp_col[[lv]], show.legend = FALSE)
   }
 
+  if (!is.null(grp_curves)) {
+    p <- p +
+      ggplot2::geom_line(data = grp_curves,
+                         ggplot2::aes(x = fpr, y = tpr, group = grp, colour = grp),
+                         linetype = "dashed", linewidth = 0.7,
+                         show.legend = FALSE) +
+      ggplot2::geom_point(data = grp_summ,
+                          ggplot2::aes(x = fpr, y = tpr, colour = grp),
+                          shape = 16, size = 3, show.legend = FALSE) +
+      ggplot2::scale_colour_manual(values = grp_col, guide = "none")
+  }
+
   if (isTRUE(labels) && nrow(pts) > 0) {
     pts_lab <- pts
     # Left-anchor the label slightly to the right of each point.  Labels
@@ -363,8 +428,9 @@ dta_sroc <- function(fit,
 
   # Summary box: white-filled rectangle + bold title + bold label column
   # right-anchored at the separator + plain value column left-anchored
-  # immediately after, so labels and values sit flush.
-  p <- p +
+  # immediately after, so labels and values sit flush.  Skipped when
+  # `summary = FALSE` (the subgroup layout reports the numbers in tables).
+  if (isTRUE(summary)) p <- p +
     ggplot2::annotate("rect",
                       xmin = bx$xmin, xmax = bx$xmax,
                       ymin = bx$ymin, ymax = bx$ymax,
@@ -375,9 +441,15 @@ dta_sroc <- function(fit,
                       label = box_title, fontface = "bold",
                       size = text_size + 0.4) +
     ggplot2::annotate("text",
-                      x = x_label_anchor, y = ys_rows,
-                      label = rows_label,
+                      x = x_label_anchor, y = ys_rows[1:3],
+                      label = rows_label[1:3],
                       fontface = "bold", hjust = 0, size = text_size) +
+    # I2 is much shorter than the other labels: centre it in the label
+    # column so it does not float away from its "= value".
+    ggplot2::annotate("text",
+                      x = x_label_anchor + label_w / 2, y = ys_rows[4],
+                      label = rows_label[4],
+                      fontface = "bold", hjust = 0.5, size = text_size) +
     ggplot2::annotate("text",
                       x = x_value_anchor, y = ys_rows,
                       label = rows_value,
@@ -432,7 +504,10 @@ dta_sroc <- function(fit,
   }
 
   p <- p +
-    ggplot2::coord_cartesian(clip = "off") +
+    # the subgroup figure keeps the panel square so it stays compact above
+    # its tables; the plain plot fills the device as before
+    (if (grouped_fig) ggplot2::coord_fixed(ratio = 1, clip = "off")
+     else ggplot2::coord_cartesian(clip = "off")) +
     ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2),
                                 limits = c(0, 1),
                                 expand = ggplot2::expansion(mult = 0.02)) +
@@ -455,6 +530,26 @@ dta_sroc <- function(fit,
   if (auc) {
     attr(p, "AUC") <- auc_val
     if (!is.null(auc_ci_pair)) attr(p, "AUC_CI") <- auc_ci_pair
+  }
+
+  # Subgroup figure: panel on top, "By <group.name> (p = X)" title over one
+  # summary table per level beneath.
+  if (grouped_fig) {
+    p_grp  <- .sroc_group_test_single(fit, pts$grp, conf)
+    tables <- stats::setNames(lapply(grp_lv, function(lv)
+      .sroc_group_table_single(grp_fits[[lv]], sum(pts$grp == lv, na.rm = TRUE),
+                               conf, isTRUE(auc) && isTRUE(auc_ci), B,
+                               lr.show = lr.show)), grp_lv)
+    # Panel over the tables, tables spanning exactly the panel's x extent;
+    # the figure is centred on the device when printed.
+    g <- .sroc_group_figure(p, tables, group.name, p_grp,
+                            panel.scale = panel.scale,
+                            shapes = grp_shape, colors = grp_col)
+    attr(g, "panel")  <- p
+    attr(g, "tables") <- tables
+    attr(g, "p_subgroup") <- p_grp
+    class(g) <- c("dta_sroc_group", class(g))
+    return(g)
   }
   p
 }
@@ -502,10 +597,15 @@ dta_sroc <- function(fit,
 #'   2000); ignored when `auc_ic = FALSE`.
 #' @param conf      Confidence level (default 0.95).
 #' @param ncol      Number of columns for the SROC panel row (default 2).
-#' @param group.e,group.c Optional per-arm subgroup of the study points (a
-#'   vector named by study label, as in `dta_sroc()`'s `group`), so each
-#'   study symbol reflects a subgroup value (e.g. measurement plane) and the
-#'   legend explains it.  Default `NULL`.
+#' @param group.e,group.c Optional per-arm subgroup of the studies (a vector
+#'   named by study label, as in `dta_sroc()`'s `group`).  When given, each
+#'   arm becomes a subgroup figure (square panel, no summary box or legend,
+#'   "By <group.name> (p = X)" over one table per level beneath it) and the
+#'   two figures sit side by side; the differences table is not drawn.
+#'   Default `NULL`.
+#' @param group.name Subgroup variable name for the table titles.
+#' @param lr.show   Show LR+ / LR- rows in the subgroup tables (default
+#'   `FALSE`).
 #' @param ...       Extra arguments forwarded to both `dta_sroc()` calls
 #'   (e.g. `labels`, `pred`, `shapes`, `colors`, `legend.pos`,
 #'   `legend.style`).  `auc_ci` is set automatically from `auc_ic`
@@ -537,6 +637,8 @@ dta_sroc_pair <- function(x,
                           ncol   = 2,
                           group.e = NULL,
                           group.c = NULL,
+                          group.name = "subgroup",
+                          lr.show = FALSE,
                           ...) {
   arms <- if (inherits(x, c("dta_pairwise_result", "dta_compare"))) {
     x$arms
@@ -574,6 +676,28 @@ dta_sroc_pair <- function(x,
   # here than in a standalone dta_sroc().
   if (is.null(panel_args$title.size)) panel_args$title.size <- 10
 
+  # Subgroup layout: each arm becomes its own subgroup figure (square panel,
+  # no summary box, no legend, "By <group.name> (p = X)" over one table per
+  # level beneath it) and the two figures sit side by side.  Both panels use
+  # the same level -> symbol/colour mapping.
+  grouped <- !is.null(group.e) || !is.null(group.c)
+  if (grouped) {
+    lv_all <- sort(unique(stats::na.omit(c(as.character(group.e),
+                                           as.character(group.c)))))
+    shp <- if (is.null(panel_args$shapes)) c(1, 0, 5, 6, 4) else panel_args$shapes
+    clr <- if (is.null(panel_args$colors))
+      c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00") else panel_args$colors
+    if (is.null(names(shp))) shp <- stats::setNames(shp[seq_along(lv_all)], lv_all)
+    if (is.null(names(clr))) clr <- stats::setNames(clr[seq_along(lv_all)], lv_all)
+    panel_args$shapes       <- shp
+    panel_args$colors       <- clr
+    panel_args$summary      <- FALSE
+    panel_args$legend.style <- "none"
+    panel_args$group.table  <- TRUE
+    panel_args$group.name   <- group.name
+    panel_args$lr.show      <- lr.show
+  }
+
   p_e <- do.call(dta_sroc, c(list(fit_e,
                                   test.label = test.label.e,
                                   outcome    = outcome,
@@ -588,6 +712,20 @@ dta_sroc_pair <- function(x,
                                   group      = group.c,
                                   auc_override = auc_pair$arm.c),
                              panel_args))
+
+  if (grouped) {
+    # p_e / p_c are dta_sroc_group gtables (panel + tables); side by side.
+    # two subgroup figures side by side at their natural sizes, with a gap
+    g <- gridExtra::arrangeGrob(
+      p_e, grid::nullGrob(), p_c, ncol = 3,
+      widths  = grid::unit.c(attr(p_e, "width"), grid::unit(0.9, "inches"),
+                             attr(p_c, "width")),
+      heights = max(attr(p_e, "height"), attr(p_c, "height")))
+    attr(g, "panels")     <- list(.e = attr(p_e, "panel"), .c = attr(p_c, "panel"))
+    attr(g, "diff_table") <- list(.e = attr(p_e, "tables"), .c = attr(p_c, "tables"))
+    class(g) <- c("dta_sroc_pair", class(g))
+    return(g)
+  }
 
   panels <- gridExtra::arrangeGrob(p_e, p_c, ncol = ncol)
 

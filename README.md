@@ -165,6 +165,16 @@ dta_forest(fit)
 dta_sroc(fit, test.label = "anti-CCP2",
          outcome    = "rheumatoid arthritis",
          population = "adults")
+
+# Subgroup sROC: one symbol / colour / dashed curve per level, no summary
+# box or legend; beneath the panel a title "By <group.name> (p = X)" (LR
+# test for subgroup differences) over one zebra table per level (Studies,
+# Sens, Spec, AUC, I2; lr.show = TRUE adds LR+/LR-), each headed by its
+# level name and symbol and spanning exactly the panel width.
+plane <- setNames(rep(c("axial", "coronal"), length.out = nrow(anti_ccp2)),
+                  anti_ccp2$studlab)
+dta_sroc(fit, test.label = "anti-CCP2", outcome = "rheumatoid arthritis",
+         population = "adults", group = plane, group.name = "plane")
 ```
 
 ### Leave-one-out sensitivity analysis
@@ -180,7 +190,9 @@ print(loo)
 # the colour of the curve fitted without it) and the summary table beneath,
 # one letter-coded row per omitted study plus the pooled estimate.
 plot(loo)                      # or dta_loo_plot(fit)
-dta_loo_plot(loo, table = FALSE)    # sROC only
+dta_loo_plot(loo, table = FALSE)            # sROC only
+dta_loo_plot(loo, table.position = "right") # or "left" / "above"
+dta_loo_plot(loo, lr.show = TRUE)           # add the LR+ / LR- columns
 ```
 
 The vignette: [`examples/example_single.Rmd`](examples/example_single.Rmd).
@@ -252,6 +264,14 @@ dta_sroc_pair(res,
               outcome    = "coronary artery disease",
               population = "adults with suspected CAD",
               auc_ic = TRUE)   # FALSE skips the AUC bootstrap (faster)
+
+# Subgroups: one subgroup figure per arm side by side (panel over the
+# per-level tables, p per arm); the differences table is replaced.
+plane <- setNames(c("axial", "coronal", "axial", "coronal", "axial"),
+                  schuetz$studlab)
+dta_sroc_pair(res, outcome = "coronary artery disease",
+              population = "adults with suspected CAD",
+              group.e = plane, group.c = plane, group.name = "plane")
 ```
 
 The differences table reports per-arm Sens, Spec and AUC (each with
