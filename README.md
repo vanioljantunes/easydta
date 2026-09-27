@@ -175,12 +175,12 @@ dta_sroc(fit, test.label = "anti-CCP2",
 loo <- dta_loo(fit)            # auc_ci = FALSE skips the AUC bootstrap
 print(loo)
 
-# One figure: the leave-one-out forest on top (letter-coded rows, Sens and
-# Spec CI panels, AUC / LR+ / LR- text columns) and beneath it an
-# unlabelled sROC with one coloured curve per omission -- each study point
-# is drawn as its row letter, in the colour of the curve fitted without it.
-plot(loo)                      # or dta_loo_forest(fit)
-dta_loo_forest(loo, sroc = FALSE)   # forest only
+# One figure, dta_sroc_pair() layout: an unlabelled sROC on top with one
+# coloured curve per omission (each study point drawn as its row letter, in
+# the colour of the curve fitted without it) and the summary table beneath,
+# one letter-coded row per omitted study plus the pooled estimate.
+plot(loo)                      # or dta_loo_plot(fit)
+dta_loo_plot(loo, table = FALSE)    # sROC only
 ```
 
 The vignette: [`examples/example_single.Rmd`](examples/example_single.Rmd).
@@ -279,7 +279,8 @@ The differences table reports per-arm Sens, Spec and AUC (each with
 # Both arms of the omitted study are dropped together; each row gives the
 # difference .e - .c in Sens, Spec, AUC, LR+ and LR- (95% CI) with its
 # p-value (Sens / Spec: LR test; AUC: MVN bootstrap; LR+/-: delta-method
-# Wald). The figure draws one sROC panel per arm below the forest.
+# Wald). The figure has the two sROC panels side by side, as in
+# dta_sroc_pair(), and the differences table beneath, one row per omission.
 loo <- dta_loo(res)
 print(loo)
 plot(loo)

@@ -17,7 +17,7 @@ export(dta_sroc_pair)
 export(dta_funnel)
 export(dta_roc_points)
 export(dta_loo)
-export(dta_loo_forest)
+export(dta_loo_plot)
 
 S3method(print, dta_single)
 S3method(print, dta_pairwise)

@@ -21,10 +21,10 @@
 #   LR+ / LR- ......... delta method (msm::deltamethod); pairwise diff CI
 #                       and Wald p from the joint 4-parameter model B.
 #
-# dta_loo_forest() draws the meta-style forest (one row per omitted
-# study, letter-coded) and, beneath it, an unlabelled sROC panel with one
-# curve per omission; each study point is drawn as its letter in the
-# colour of the curve that omits it.
+# dta_loo_plot() draws, like dta_sroc_pair(), the sROC panel(s) on top
+# (one curve per omission; each study point drawn as its row letter in the
+# colour of the curve that omits it) and a bordered summary table beneath,
+# one letter-coded row per omitted study plus the pooled estimate.
 # ============================================================================
 
 #' Leave-one-out sensitivity analysis
@@ -50,7 +50,7 @@
 #'   omitted study plus the pooled row, flagged by `$table$pooled`),
 #'   `$type` (`"single"` or `"pair"`), `$letters` (the row codes used by
 #'   the plot) and the sROC geometry of every refit.  `print()` shows the
-#'   table; `plot()` / [dta_loo_forest()] draws the forest and sROC figure.
+#'   table; `plot()` / [dta_loo_plot()] draws the sROC panels and table figure.
 #' @examples
 #' \donttest{
 #' data(anti_ccp2)
@@ -358,233 +358,99 @@ print.dta_loo <- function(x, digits = 2, ...) {
 }
 
 #' @export
-plot.dta_loo <- function(x, ...) dta_loo_forest(x, ...)
+plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 
-# -- Forest + sROC figure ---------------------------------------------------
+# -- sROC panels + summary table figure ------------------------------------
 
-#' Leave-one-out forest plot with sROC curves
+#' Leave-one-out sROC panels with summary table
 #'
-#' Draws the leave-one-out table of [dta_loo()] as a forest plot in the
-#' style of `meta::forest(metainf())`: one row per omitted study
-#' ("Omitting ..."), the pooled estimate last, a letter code on every row.
-#' For a single test the sensitivity and specificity carry the CI panels
-#' and AUC, LR+ and LR- are text columns; for a comparison the
-#' differences in sensitivity and specificity carry the CI panels and each
-#' difference is followed by its p-value.
+#' Draws the leave-one-out analysis of [dta_loo()] in the layout of
+#' [dta_sroc_pair()]: the sROC panels on top (one per arm for a comparison,
+#' a single panel for one test) and a bordered summary table beneath with
+#' one row per omitted study ("Omitting ...") and the pooled estimate last.
+#' For a single test the table columns are Sens, Spec, AUC, LR+ and LR-
+#' (each with CI); for a comparison each column is the difference `.e - .c`
+#' followed by its p-value.
 #'
-#' Beneath the forest, an unlabelled sROC panel (two for a comparison, one
-#' per arm) draws one thin coloured curve per omission and the full-data
-#' curve in black.  Each study point is drawn as its row letter, in the
-#' colour of the curve fitted without that study, so an influential study
-#' is read off directly: its letter sits away from the cloud and its curve
-#' departs from the black one.
+#' Each sROC panel is unlabelled: one thin coloured curve per omission and
+#' the full-data curve in black.  Every study point is drawn as its row
+#' letter, in the colour of the curve fitted without that study, so an
+#' influential study is read off directly: its letter sits away from the
+#' cloud and its curve departs from the black one.
 #'
 #' @param x       A `dta_loo` object, or a `dta_single` /
 #'   `dta_pairwise_result` (then [dta_loo()] is run first; `...` is
 #'   forwarded to it).
-#' @param sroc    Logical. Draw the sROC panel below the forest?
+#' @param table   Logical. Show the summary table below the panels?
 #'   Default `TRUE`.
-#' @param digits  Display digits for the value columns (default 2).
-#' @param title   Optional title, left-aligned above the forest.
-#' @param row_in  Height of one forest row in inches (default 0.2).
-#' @param sroc_in Height of the sROC band in inches (default 4 for one
-#'   panel or two).
+#' @param digits  Display digits for the table (default 2).
 #' @param ...     Forwarded to [dta_loo()] when `x` is not a `dta_loo`.
 #'
 #' @return A `gtable` of class `"dta_loo_plot"`; its `print()` method draws
-#'   it, so it renders when returned at top level.
+#'   it, so it renders when returned at top level.  `attr(., "panels")`
+#'   holds the ggplot panel(s) and `attr(., "table")` the rendered
+#'   data.frame.
 #' @examples
 #' \donttest{
 #' data(anti_ccp2)
 #' fit <- dta_fit_single(anti_ccp2, wide = TRUE)
-#' dta_loo_forest(fit, auc_ci = FALSE)
+#' dta_loo_plot(fit, auc_ci = FALSE)
 #' }
 #' @export
-dta_loo_forest <- function(x, sroc = TRUE, digits = 2, title = NULL,
-                           row_in = 0.2, sroc_in = NULL, ...) {
+dta_loo_plot <- function(x, table = TRUE, digits = 2, ...) {
   if (!inherits(x, "dta_loo")) x <- dta_loo(x, ...)
-  loo <- x
-  t   <- loo$table
-  n   <- nrow(t)
-  k   <- n - 1
-  conf_pct <- paste0(100 * loo$conf, "% CI")
-
-  # Rows top to bottom: header, k omitted rows, pooled row.
-  ypos     <- n + 1 - seq_len(n)
-  header_y <- n + 1
-  ylim     <- c(0.5, header_y + 0.5)
-  face     <- ifelse(t$pooled, "bold", "plain")
-  omit_y   <- ypos[!t$pooled]
-  zebra_df <- data.frame(ypos = omit_y[seq_along(omit_y) %% 2L == 1L])
-
-  hdr_size <- 3.2; cell_size <- 3.0; axis_text_size <- 8
-
-  base_theme <- ggplot2::theme_bw() +
-    ggplot2::theme(
-      axis.title       = ggplot2::element_blank(),
-      axis.text.y      = ggplot2::element_blank(),
-      axis.ticks.y     = ggplot2::element_blank(),
-      panel.grid       = ggplot2::element_blank(),
-      panel.border     = ggplot2::element_blank(),
-      plot.margin      = ggplot2::margin(t = 5.5, r = 0, b = 2, l = 0),
-      legend.position  = "none")
-  invisible_axis <- ggplot2::theme(
-    axis.text.x  = ggplot2::element_text(colour = NA, size = axis_text_size),
-    axis.ticks.x = ggplot2::element_line(colour = NA),
-    axis.line.x  = ggplot2::element_line(colour = NA))
-  visible_axis <- ggplot2::theme(
-    axis.text.x  = ggplot2::element_text(colour = "black", size = axis_text_size),
-    axis.ticks.x = ggplot2::element_line(colour = "black", linewidth = 0.4),
-    axis.line.x  = ggplot2::element_line(colour = "black", linewidth = 0.4),
-    axis.ticks.length = grid::unit(3, "pt"))
-  zebra <- function() ggplot2::geom_rect(
-    data = zebra_df, inherit.aes = FALSE,
-    ggplot2::aes(xmin = -Inf, xmax = Inf, ymin = ypos - 0.5, ymax = ypos + 0.5),
-    fill = "grey92")
-
-  # ----- label panel: letter + "Omitting <study>" ---------------------------
-  lab <- ifelse(t$pooled, t$studlab, paste("Omitting", t$studlab))
-  letter_w <- max(nchar(t$letter)) + 2
-  lab_w    <- max(nchar(c("Study", lab))) + 2
-  tot_w    <- letter_w + lab_w
-  x_letter <- 0
-  x_lab    <- letter_w / tot_w
-  cells <- rbind(
-    data.frame(x = x_letter, ypos = ypos, label = t$letter, face = "bold",
-               stringsAsFactors = FALSE),
-    data.frame(x = x_lab, ypos = ypos, label = lab, face = face,
-               stringsAsFactors = FALSE))
-  cells <- cells[cells$label != "", , drop = FALSE]
-  p_labels <- ggplot2::ggplot(cells, ggplot2::aes(y = ypos)) +
-    zebra() +
-    ggplot2::geom_text(ggplot2::aes(x = x, label = label, fontface = face),
-                       hjust = 0, size = cell_size) +
-    ggplot2::annotate("text", x = x_lab, y = header_y, label = "Study",
-                      hjust = 0, fontface = "bold", size = hdr_size) +
-    ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim) +
-    base_theme + invisible_axis
-  label_w_in <- max(2.2, 3.0 * tot_w / 43)
-
-  # ----- text and CI panels --------------------------------------------------
-  text_panel <- function(txt, header, x = 0.5, hjust = 0.5) {
-    df <- data.frame(ypos = ypos, txt = txt, face = face, stringsAsFactors = FALSE)
-    ggplot2::ggplot(df, ggplot2::aes(y = ypos)) +
-      zebra() +
-      ggplot2::geom_text(ggplot2::aes(label = txt, fontface = face),
-                         x = x, hjust = hjust, size = cell_size) +
-      ggplot2::annotate("text", x = x, y = header_y, label = header,
-                        hjust = hjust, fontface = "bold", size = hdr_size) +
-      ggplot2::coord_cartesian(xlim = c(0, 1), ylim = ylim) +
-      base_theme + invisible_axis
-  }
-  ci_panel <- function(est, lci, uci, xlim, breaks, ref = NULL) {
-    df <- data.frame(ypos = ypos, est = est, lci = lci, uci = uci,
-                     pooled = t$pooled)
-    pooled_est <- est[t$pooled]
-    df <- df[!is.na(df$est), , drop = FALSE]
-    df$shape <- ifelse(df$pooled, 18L, 15L)
-    df$size  <- ifelse(df$pooled, 4, 2)
-    p <- ggplot2::ggplot(df, ggplot2::aes(x = est, y = ypos)) + zebra()
-    if (!is.null(ref))
-      p <- p + ggplot2::geom_vline(xintercept = ref, colour = "grey55",
-                                   linewidth = 0.4)
-    if (length(pooled_est) && !is.na(pooled_est))
-      p <- p + ggplot2::geom_vline(xintercept = pooled_est, linetype = "dashed",
-                                   colour = "grey40", linewidth = 0.4)
-    p +
-      ggplot2::geom_errorbar(ggplot2::aes(xmin = lci, xmax = uci),
-                             width = 0.25, orientation = "y") +
-      ggplot2::geom_point(ggplot2::aes(shape = shape, size = size)) +
-      ggplot2::scale_shape_identity() + ggplot2::scale_size_identity() +
-      ggplot2::scale_x_continuous(breaks = breaks) +
-      ggplot2::coord_cartesian(xlim = xlim, ylim = ylim) +
-      base_theme + visible_axis
-  }
-  # differences can be negative, so the comparison uses ", " between bounds
-  sep <- if (loo$type == "single") "-" else ", "
-  fmt <- function(e, l, u) {
-    fstr <- sprintf("%%.%df (%%.%df%s%%.%df)", digits, digits, sep, digits)
-    ifelse(is.na(e), "n/a",
-           ifelse(is.na(l) | is.na(u), sprintf(sprintf("%%.%df", digits), e),
-                  sprintf(fstr, e, l, u)))
-  }
-  diff_lim <- function(l, u) {
-    r <- range(c(l, u, 0), na.rm = TRUE)
-    r + c(-1, 1) * 0.06 * diff(r)
-  }
+  loo  <- x
+  k    <- length(loo$studies)
+  cols <- grDevices::hcl.colors(k, "Dark 3")
 
   if (loo$type == "single") {
-    panels <- list(
-      p_labels,
-      ci_panel(t$sens, t$sens_lci, t$sens_uci, c(0, 1), seq(0, 1, 0.2)),
-      text_panel(fmt(t$sens, t$sens_lci, t$sens_uci), paste0("Sens (", conf_pct, ")")),
-      ci_panel(t$spec, t$spec_lci, t$spec_uci, c(0, 1), seq(0, 1, 0.2)),
-      text_panel(fmt(t$spec, t$spec_lci, t$spec_uci), paste0("Spec (", conf_pct, ")")),
-      text_panel(fmt(t$auc, t$auc_lci, t$auc_uci), paste0("AUC (", conf_pct, ")")),
-      text_panel(fmt(t$lrp, t$lrp_lci, t$lrp_uci), paste0("LR+ (", conf_pct, ")")),
-      text_panel(fmt(t$lrn, t$lrn_lci, t$lrn_uci), paste0("LR- (", conf_pct, ")")))
-    widths <- c(label_w_in, 1.6, 1.5, 1.6, 1.5, 1.5, 1.5, 1.5)
+    p <- .loo_sroc_panel(loo$geom, loo$geom_full, loo$points, loo$letters,
+                         cols, "sROC omitting each study")
+    panels_list <- list(p)
+    panels <- gridExtra::arrangeGrob(p, ncol = 1)
   } else {
-    pv <- function(p) .loo_fmt_p(p)
-    lim_se <- diff_lim(t$dsens_lci, t$dsens_uci)
-    lim_sp <- diff_lim(t$dspec_lci, t$dspec_uci)
-    panels <- list(
-      p_labels,
-      ci_panel(t$dsens, t$dsens_lci, t$dsens_uci, lim_se, ggplot2::waiver(), ref = 0),
-      text_panel(fmt(t$dsens, t$dsens_lci, t$dsens_uci), paste0("ΔSens (", conf_pct, ")")),
-      text_panel(pv(t$p_sens), "p"),
-      ci_panel(t$dspec, t$dspec_lci, t$dspec_uci, lim_sp, ggplot2::waiver(), ref = 0),
-      text_panel(fmt(t$dspec, t$dspec_lci, t$dspec_uci), paste0("ΔSpec (", conf_pct, ")")),
-      text_panel(pv(t$p_spec), "p"),
-      text_panel(fmt(t$dauc, t$dauc_lci, t$dauc_uci), paste0("ΔAUC (", conf_pct, ")")),
-      text_panel(pv(t$p_auc), "p"),
-      text_panel(fmt(t$dlrp, t$dlrp_lci, t$dlrp_uci), paste0("ΔLR+ (", conf_pct, ")")),
-      text_panel(pv(t$p_lrp), "p"),
-      text_panel(fmt(t$dlrn, t$dlrn_lci, t$dlrn_uci), paste0("ΔLR- (", conf_pct, ")")),
-      text_panel(pv(t$p_lrn), "p"))
-    widths <- c(label_w_in, 1.5, 1.6, 0.55, 1.5, 1.6, 0.55, 1.6, 0.55, 1.6, 0.55, 1.6, 0.55)
+    ge  <- lapply(loo$geom, function(g) g$e)
+    gc  <- lapply(loo$geom, function(g) g$c)
+    p_e <- .loo_sroc_panel(ge, loo$geom_full$e, loo$points$e, loo$letters,
+                           cols, paste0("sROC of ", loo$arms$e,
+                                        "\nomitting each study"))
+    p_c <- .loo_sroc_panel(gc, loo$geom_full$c, loo$points$c, loo$letters,
+                           cols, paste0("sROC of ", loo$arms$c,
+                                        "\nomitting each study"))
+    panels_list <- list(.e = p_e, .c = p_c)
+    panels <- gridExtra::arrangeGrob(p_e, p_c, ncol = 2)
   }
 
-  forest <- gridExtra::arrangeGrob(grobs = panels, ncol = length(panels),
-                                   widths = widths,
-                                   padding = grid::unit(0, "line"))
-  forest_h <- grid::unit((ylim[2] - ylim[1]) * row_in + 0.35, "inches")
-
-  grobs   <- list(forest)
-  heights <- list(forest_h)
-  if (!is.null(title)) {
-    title_grob <- grid::textGrob(title, x = grid::unit(2, "pt"), hjust = 0,
-                                 gp = grid::gpar(fontface = "bold", fontsize = 12))
-    grobs   <- c(list(title_grob), grobs)
-    heights <- c(list(grid::unit(1.8 * 12, "points")), heights)
+  tbl_df <- cbind(data.frame(" " = loo$table$letter, check.names = FALSE),
+                  .loo_display(loo, digits))
+  # console print keeps ASCII "d"; the drawn table uses the delta sign
+  names(tbl_df) <- sub("^d(Sens|Spec|AUC|LR)", "Δ\\1", names(tbl_df))
+  if (isTRUE(table)) {
+    face <- ifelse(loo$table$pooled, "bold", "plain")
+    tbl_grob <- gridExtra::tableGrob(
+      tbl_df, rows = NULL,
+      theme = gridExtra::ttheme_minimal(
+        core    = list(fg_params = list(cex = 0.8,
+                                        fontface = rep(face, ncol(tbl_df)))),
+        colhead = list(fg_params = list(cex = 0.8, fontface = "bold"))))
+    tbl_grob <- gtable::gtable_add_grob(
+      tbl_grob,
+      grobs = grid::rectGrob(gp = grid::gpar(fill = NA, col = "black",
+                                             lwd = 1.2)),
+      t = 1, b = nrow(tbl_grob), l = 1, r = ncol(tbl_grob),
+      name = "container-border")
+    # grobHeight() undercounts a gtable; sum the row heights instead so the
+    # band always fits the whole table (plus a small margin).
+    tbl_h <- sum(tbl_grob$heights) + grid::unit(40, "pt")
+    g <- gridExtra::arrangeGrob(panels, tbl_grob, nrow = 2,
+                                heights = grid::unit.c(
+                                  grid::unit(1, "npc") - tbl_h, tbl_h))
+  } else {
+    g <- panels
   }
 
-  # ----- sROC band ------------------------------------------------------------
-  if (isTRUE(sroc)) {
-    cols <- grDevices::hcl.colors(k, "Dark 3")
-    if (loo$type == "single") {
-      band <- .loo_sroc_panel(loo$geom, loo$geom_full, loo$points,
-                              loo$letters, cols,
-                              "sROC omitting each study")
-      if (is.null(sroc_in)) sroc_in <- 4
-    } else {
-      ge <- lapply(loo$geom, function(g) g$e)
-      gc <- lapply(loo$geom, function(g) g$c)
-      p_e <- .loo_sroc_panel(ge, loo$geom_full$e, loo$points$e, loo$letters,
-                             cols, paste0(loo$arms$e, ": sROC omitting each study"))
-      p_c <- .loo_sroc_panel(gc, loo$geom_full$c, loo$points$c, loo$letters,
-                             cols, paste0(loo$arms$c, ": sROC omitting each study"))
-      band <- gridExtra::arrangeGrob(p_e, p_c, ncol = 2)
-      if (is.null(sroc_in)) sroc_in <- 4
-    }
-    grobs   <- c(grobs, list(band))
-    heights <- c(heights, list(grid::unit(sroc_in, "inches")))
-  }
-
-  total_h <- Reduce(`+`, heights)
-  g <- gridExtra::arrangeGrob(grobs = grobs, ncol = 1,
-                              heights = do.call(grid::unit.c, heights))
-  attr(g, "height") <- total_h
+  attr(g, "panels") <- panels_list
+  attr(g, "table")  <- tbl_df
   attr(g, "loo")    <- loo
   class(g) <- c("dta_loo_plot", class(g))
   g
@@ -593,13 +459,10 @@ dta_loo_forest <- function(x, sroc = TRUE, digits = 2, title = NULL,
 #' @export
 print.dta_loo_plot <- function(x, ...) {
   grid::grid.newpage()
-  grid::pushViewport(grid::viewport(
-    x = grid::unit(0.5, "npc"), y = grid::unit(0.5, "npc"), just = "centre",
-    height = attr(x, "height"), width = grid::unit(1, "npc")))
   grid::grid.draw(x)
-  grid::popViewport()
   invisible(x)
 }
+
 
 # Unlabelled sROC: one thin coloured curve per omission (geom[[i]] = NULL
 # when that refit failed), the full-data curve in black, study points drawn

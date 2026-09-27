@@ -26,7 +26,7 @@ An S3 object of class \code{"dta_loo"} with \verb{$table} (one row per
 omitted study plus the pooled row, flagged by \verb{$table$pooled}),
 \verb{$type} (\code{"single"} or \code{"pair"}), \verb{$letters} (the row codes used by
 the plot) and the sROC geometry of every refit.  \code{print()} shows the
-table; \code{plot()} / \code{\link[=dta_loo_forest]{dta_loo_forest()}} draws the forest and sROC figure.
+table; \code{plot()} / \code{\link[=dta_loo_plot]{dta_loo_plot()}} draws the sROC panels and table figure.
 }
 \description{
 Refits the model once per study with that study removed and collects
