@@ -25,8 +25,11 @@ only the AUC point estimates and is much faster.}
 An S3 object of class \code{"dta_loo"} with \verb{$table} (one row per
 omitted study plus the pooled row, flagged by \verb{$table$pooled}),
 \verb{$type} (\code{"single"} or \code{"pair"}), \verb{$letters} (the row codes used by
-the plot) and the sROC geometry of every refit.  \code{print()} shows the
-table; \code{plot()} / \code{\link[=dta_loo_plot]{dta_loo_plot()}} draws the sROC panels and table figure.
+the plot) and the sROC geometry of every refit.  The single-test table
+also carries \code{i2_sens}, \code{i2_spec} and \code{i2_biv} (Zhou-Dendukuri bivariate
+I^2 of each refit); the pairwise table carries \code{i2_e} and \code{i2_c}.
+\code{print()} shows the table; \code{plot()} / \code{\link[=dta_loo_plot]{dta_loo_plot()}} draws the
+sROC panels and table figure.
 }
 \description{
 Refits the model once per study with that study removed and collects

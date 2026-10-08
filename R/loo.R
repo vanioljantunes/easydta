@@ -49,8 +49,11 @@
 #' @return An S3 object of class `"dta_loo"` with `$table` (one row per
 #'   omitted study plus the pooled row, flagged by `$table$pooled`),
 #'   `$type` (`"single"` or `"pair"`), `$letters` (the row codes used by
-#'   the plot) and the sROC geometry of every refit.  `print()` shows the
-#'   table; `plot()` / [dta_loo_plot()] draws the sROC panels and table figure.
+#'   the plot) and the sROC geometry of every refit.  The single-test table
+#'   also carries `i2_sens`, `i2_spec` and `i2_biv` (Zhou-Dendukuri bivariate
+#'   I^2 of each refit); the pairwise table carries `i2_e` and `i2_c`.
+#'   `print()` shows the table; `plot()` / [dta_loo_plot()] draws the
+#'   sROC panels and table figure.
 #' @examples
 #' \donttest{
 #' data(anti_ccp2)
@@ -127,7 +130,8 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
     spec = na, spec_lci = na, spec_uci = na,
     auc  = na, auc_lci  = na, auc_uci  = na,
     lrp  = na, lrp_lci  = na, lrp_uci  = na,
-    lrn  = na, lrn_lci  = na, lrn_uci  = na)
+    lrn  = na, lrn_lci  = na, lrn_uci  = na,
+    i2_sens = na, i2_spec = na, i2_biv = na)
   if (is.null(fit)) return(list(row = row, geom = NULL))
 
   f   <- .fixed_se_sp(fit$fit)
@@ -140,13 +144,15 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
   if (is.null(aci)) aci <- c(na, na)
   lrp <- der[der$measure == "LR+", ]
   lrn <- der[der$measure == "LR-", ]
+  h   <- fit$heterogeneity
 
   row[] <- list(
     se[["estimate"]], se[["lci"]], se[["uci"]],
     sp[["estimate"]], sp[["lci"]], sp[["uci"]],
     g$AUC, aci[1], aci[2],
     lrp$estimate, lrp$lci, lrp$uci,
-    lrn$estimate, lrn$lci, lrn$uci)
+    lrn$estimate, lrn$lci, lrn$uci,
+    .loo_i2(h, "I2_sens"), .loo_i2(h, "I2_spec"), .loo_i2(h, "I2_biv"))
   list(row  = row,
        geom = list(lsens = f$lsens, lspec = f$lspec, slope = g$slope))
 }
@@ -233,7 +239,8 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
     dspec = na, dspec_lci = na, dspec_uci = na, p_spec = na,
     dauc  = na, dauc_lci  = na, dauc_uci  = na, p_auc  = na,
     dlrp  = na, dlrp_lci  = na, dlrp_uci  = na, p_lrp  = na,
-    dlrn  = na, dlrn_lci  = na, dlrn_uci  = na, p_lrn  = na)
+    dlrn  = na, dlrn_lci  = na, dlrn_uci  = na, p_lrn  = na,
+    i2_e = na, i2_c = na)
   if (is.null(pair) || is.null(fit_e) || is.null(fit_c))
     return(list(row = row, geom = NULL))
 
@@ -289,7 +296,9 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
     dsp[1], dsp[2], dsp[3], p_spec,
     dauc[1], dauc[2], dauc[3], dauc[4],
     dlrp, dlrp - z * se_dlrp, dlrp + z * se_dlrp, wald_p(dlrp, se_dlrp),
-    dlrn, dlrn - z * se_dlrn, dlrn + z * se_dlrn, wald_p(dlrn, se_dlrn))
+    dlrn, dlrn - z * se_dlrn, dlrn + z * se_dlrn, wald_p(dlrn, se_dlrn),
+    .loo_i2(fit_e$heterogeneity, "I2_biv"),
+    .loo_i2(fit_c$heterogeneity, "I2_biv"))
 
   arm_geom <- function(fit) {
     f <- .fixed_se_sp(fit$fit)
@@ -311,8 +320,19 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
   ifelse(is.na(p), "n/a", ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)))
 }
 
+# Zhou-Dendukuri bivariate I^2 of a fit's heterogeneity block, as a
+# proportion; NA when the refit failed or the statistic is undefined.
+.loo_i2 <- function(h, what) {
+  if (is.null(h) || is.null(h[[what]])) return(NA_real_)
+  as.numeric(h[[what]])
+}
+
+.loo_fmt_i2 <- function(p) {
+  ifelse(is.na(p), "n/a", sprintf("%.0f%%", 100 * p))
+}
+
 # Display table: one text column per measure (and per p-value).
-.loo_display <- function(x, digits = 2, lr.show = FALSE) {
+.loo_display <- function(x, digits = 2, lr.show = FALSE, i2.show = TRUE) {
   t <- x$table
   lab <- ifelse(t$pooled, t$studlab, paste("Omitting", t$studlab))
   out <- if (x$type == "single") {
@@ -323,6 +343,7 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
       AUC    = .loo_fmt_ci(t$auc,  t$auc_lci,  t$auc_uci,  digits),
       `LR+`  = .loo_fmt_ci(t$lrp,  t$lrp_lci,  t$lrp_uci,  digits),
       `LR-`  = .loo_fmt_ci(t$lrn,  t$lrn_lci,  t$lrn_uci,  digits),
+      `I2`   = .loo_fmt_i2(t$i2_biv),
       check.names = FALSE, stringsAsFactors = FALSE)
   } else {
     data.frame(
@@ -337,6 +358,8 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
       `p   `   = .loo_fmt_p(t$p_lrp),
       `dLR-`   = .loo_fmt_ci(t$dlrn,  t$dlrn_lci,  t$dlrn_uci,  digits),
       `p    `  = .loo_fmt_p(t$p_lrn),
+      `I2.e`   = .loo_fmt_i2(t$i2_e),
+      `I2.c`   = .loo_fmt_i2(t$i2_c),
       check.names = FALSE, stringsAsFactors = FALSE)
   }
   # LR+/LR- are always computed (x$table); shown only when lr.show = TRUE
@@ -345,11 +368,21 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
             else !names(out) %in% c("dLR+", "p   ", "dLR-", "p    ")
     out <- out[, keep, drop = FALSE]
   }
+  # I^2 is on by default; i2.show = FALSE drops the column(s)
+  if (!isTRUE(i2.show)) {
+    keep <- if (x$type == "single") names(out) != "I2"
+            else !names(out) %in% c("I2.e", "I2.c")
+    out <- out[, keep, drop = FALSE]
+  } else if (x$type == "pair") {
+    names(out)[names(out) == "I2.e"] <- paste0("I2 ", x$arms$e)
+    names(out)[names(out) == "I2.c"] <- paste0("I2 ", x$arms$c)
+  }
   out
 }
 
 #' @export
-print.dta_loo <- function(x, digits = 2, lr.show = FALSE, ...) {
+print.dta_loo <- function(x, digits = 2, lr.show = FALSE, i2.show = TRUE,
+                          ...) {
   cat("<dta_loo>  Leave-one-out sensitivity analysis\n")
   if (x$type == "single") {
     cat("  Studies: ", length(x$studies), "   ", 100 * x$conf,
@@ -360,7 +393,8 @@ print.dta_loo <- function(x, digits = 2, lr.show = FALSE, ...) {
         "  Studies: ", length(x$studies), "   ", 100 * x$conf,
         "% CI in brackets\n\n", sep = "")
   }
-  print(.loo_display(x, digits, lr.show), row.names = FALSE, right = FALSE)
+  print(.loo_display(x, digits, lr.show, i2.show), row.names = FALSE,
+        right = FALSE)
   invisible(x)
 }
 
@@ -376,8 +410,8 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' a single panel for one test) and a bordered summary table beneath with
 #' one row per omitted study ("Omitting ...") and the pooled estimate last.
 #' For a single test the table columns are Sens, Spec, AUC, LR+ and LR-
-#' (each with CI); for a comparison each column is the difference `.e - .c`
-#' followed by its p-value.
+#' (each with CI) and the bivariate I^2; for a comparison each column is the
+#' difference `.e - .c` followed by its p-value, then the I^2 of each arm.
 #'
 #' Each sROC panel is unlabelled: one thin coloured curve per omission and
 #' the full-data curve in black.  Every study point is drawn as its row
@@ -394,6 +428,8 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' @param digits  Display digits for the table (default 2).
 #' @param lr.show Logical. Show the LR+ / LR- columns? They are always
 #'   computed (see `x$table`); default `FALSE` keeps the table compact.
+#' @param i2.show Logical. Show the Zhou-Dendukuri bivariate I^2 column
+#'   (one per arm for a comparison)? Default `TRUE`.
 #' @param ...     Forwarded to [dta_loo()] when `x` is not a `dta_loo`.
 #'
 #' @return A `gtable` of class `"dta_loo_plot"`; its `print()` method draws
@@ -409,7 +445,7 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' @export
 dta_loo_plot <- function(x, table = TRUE,
                          table.position = c("below", "right", "left", "above"),
-                         digits = 2, lr.show = FALSE, ...) {
+                         digits = 2, lr.show = FALSE, i2.show = TRUE, ...) {
   # tolerate the informal spellings "bellow" / "up"
   table.position <- switch(as.character(table.position[1]),
                            bellow = "below", up = "above", table.position[1])
@@ -439,9 +475,11 @@ dta_loo_plot <- function(x, table = TRUE,
   }
 
   tbl_df <- cbind(data.frame(" " = loo$table$letter, check.names = FALSE),
-                  .loo_display(loo, digits, lr.show))
+                  .loo_display(loo, digits, lr.show, i2.show))
   # console print keeps ASCII "d"; the drawn table uses the delta sign
   names(tbl_df) <- sub("^d(Sens|Spec|AUC|LR)", "Δ\\1", names(tbl_df))
+  # and the I2 column(s) are drawn with the superscript
+  names(tbl_df) <- sub("^I2", "I²", names(tbl_df))
   if (isTRUE(table)) {
     face <- ifelse(loo$table$pooled, "bold", "plain")
     tbl_grob <- gridExtra::tableGrob(

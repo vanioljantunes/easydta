@@ -10,6 +10,7 @@ dta_loo_plot(
   table.position = c("below", "right", "left", "above"),
   digits = 2,
   lr.show = FALSE,
+  i2.show = TRUE,
   ...
 )
 }
@@ -28,6 +29,9 @@ panel(s): \code{"below"} (default), \code{"right"}, \code{"left"} or \code{"abov
 \item{lr.show}{Logical. Show the LR+ / LR- columns? They are always
 computed (see \code{x$table}); default \code{FALSE} keeps the table compact.}
 
+\item{i2.show}{Logical. Show the Zhou-Dendukuri bivariate I^2 column
+(one per arm for a comparison)? Default \code{TRUE}.}
+
 \item{...}{Forwarded to \code{\link[=dta_loo]{dta_loo()}} when \code{x} is not a \code{dta_loo}.}
 }
 \value{
@@ -42,8 +46,8 @@ Draws the leave-one-out analysis of \code{\link[=dta_loo]{dta_loo()}} in the lay
 a single panel for one test) and a bordered summary table beneath with
 one row per omitted study ("Omitting ...") and the pooled estimate last.
 For a single test the table columns are Sens, Spec, AUC, LR+ and LR-
-(each with CI); for a comparison each column is the difference \code{.e - .c}
-followed by its p-value.
+(each with CI) and the bivariate I^2; for a comparison each column is the
+difference \code{.e - .c} followed by its p-value, then the I^2 of each arm.
 }
 \details{
 Each sROC panel is unlabelled: one thin coloured curve per omission and
