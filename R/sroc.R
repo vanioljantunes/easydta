@@ -55,6 +55,12 @@
 #'   Default `TRUE`.
 #' @param group.table Build the subgroup figure (tables under the panel)?
 #'   Default `TRUE`; `FALSE` returns the plain ggplot with coloured points.
+#' @param group.overall Give every subgroup table a second value column with
+#'   the estimate over all studies, so each level is read against the whole
+#'   study set.  Default `FALSE`.
+#' @param group.overall.label Header of that column (default `"All studies"`).
+#' @param group.level.label Header of the level's own column when
+#'   `group.overall = TRUE` (default `"This group"`).
 #' @param lr.show     Show LR+ / LR- rows in the subgroup tables? Always
 #'   computed; default `FALSE`.
 #' @param panel.scale Width of the sROC panel relative to the natural width
@@ -121,6 +127,9 @@ dta_sroc <- function(fit,
                      group.name = "subgroup",
                      group.curves = TRUE,
                      group.table = TRUE,
+                     group.overall = FALSE,
+                     group.overall.label = "All studies",
+                     group.level.label = "This group",
                      lr.show = FALSE,
                      panel.scale = 1.4,
                      auc_override = NULL) {
@@ -536,10 +545,15 @@ dta_sroc <- function(fit,
   # summary table per level beneath.
   if (grouped_fig) {
     p_grp  <- .sroc_group_test_single(fit, pts$grp, conf)
+    k_all <- length(unique(as.character(fit$long$studlab)))
     tables <- stats::setNames(lapply(grp_lv, function(lv)
       .sroc_group_table_single(grp_fits[[lv]], sum(pts$grp == lv, na.rm = TRUE),
                                conf, isTRUE(auc) && isTRUE(auc_ci), B,
-                               lr.show = lr.show)), grp_lv)
+                               lr.show = lr.show,
+                               overall = if (isTRUE(group.overall)) fit else NULL,
+                               overall.k = k_all,
+                               group.label = group.level.label,
+                               overall.label = group.overall.label)), grp_lv)
     # Panel over the tables, tables spanning exactly the panel's x extent;
     # the figure is centred on the device when printed.
     g <- .sroc_group_figure(p, tables, group.name, p_grp,

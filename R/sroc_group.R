@@ -130,24 +130,39 @@
   if (p < 0.001) "<0.001" else sprintf("%.3f", p)
 }
 
-# Single test, one subgroup level: Studies, Sens, Spec, AUC, LR+, LR-, I2.
-.sroc_group_table_single <- function(fit, k, conf, auc_ci, B, digits = 2,
-                                     lr.show = FALSE) {
+# One column of a level table: Studies, Sens, Spec, AUC, LR+, LR-, I2 of one
+# fit, formatted.
+.sroc_group_table_col <- function(fit, k, conf, auc_ci, B, digits) {
   r  <- .loo_single_row(fit, conf, auc_ci, B)$row
   i2 <- if (!is.null(fit) && !is.null(fit$heterogeneity))
     sprintf("%.1f%%", 100 * fit$heterogeneity$I2_biv) else "n/a"
+  c(as.character(k),
+    .sroc_fmt_ci(r$sens, r$sens_lci, r$sens_uci, digits),
+    .sroc_fmt_ci(r$spec, r$spec_lci, r$spec_uci, digits),
+    .sroc_fmt_ci(r$auc,  r$auc_lci,  r$auc_uci,  digits),
+    .sroc_fmt_ci(r$lrp,  r$lrp_lci,  r$lrp_uci,  digits),
+    .sroc_fmt_ci(r$lrn,  r$lrn_lci,  r$lrn_uci,  digits),
+    i2)
+}
+
+# Single test, one subgroup level: Studies, Sens, Spec, AUC, LR+, LR-, I2.
+# With `overall` (the fit over all studies) the table carries a second value
+# column, so every level is read against the whole study set.
+.sroc_group_table_single <- function(fit, k, conf, auc_ci, B, digits = 2,
+                                     lr.show = FALSE, overall = NULL,
+                                     overall.k = NULL,
+                                     group.label = "This group",
+                                     overall.label = "All studies") {
   out <- data.frame(
     Measure = c("Studies", "Sensitivity", "Specificity", "AUC", "LR+", "LR-",
                 "I²"),
-    Estimate = c(
-      as.character(k),
-      .sroc_fmt_ci(r$sens, r$sens_lci, r$sens_uci, digits),
-      .sroc_fmt_ci(r$spec, r$spec_lci, r$spec_uci, digits),
-      .sroc_fmt_ci(r$auc,  r$auc_lci,  r$auc_uci,  digits),
-      .sroc_fmt_ci(r$lrp,  r$lrp_lci,  r$lrp_uci,  digits),
-      .sroc_fmt_ci(r$lrn,  r$lrn_lci,  r$lrn_uci,  digits),
-      i2),
+    Estimate = .sroc_group_table_col(fit, k, conf, auc_ci, B, digits),
     stringsAsFactors = FALSE, check.names = FALSE)
+  if (!is.null(overall)) {
+    out$Overall <- .sroc_group_table_col(overall, overall.k, conf, auc_ci, B,
+                                         digits)
+    names(out) <- c("Measure", group.label, overall.label)
+  }
   # LR+/LR- are always computed; shown only on request
   if (!isTRUE(lr.show)) out <- out[!out$Measure %in% c("LR+", "LR-"), ]
   rownames(out) <- NULL
