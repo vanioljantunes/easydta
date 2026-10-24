@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{dta_fit_single}
 \alias{dta_fit_single}
-\title{Fit the bivariate binomial GLMM for a single diagnostic test}
+\title{Fit, one test: bivariate binomial GLMM}
 \usage{
 dta_fit_single(data, nAGQ = 1L, wide = NA, conf = 0.95, ...)
 }

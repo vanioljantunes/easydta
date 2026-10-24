@@ -22,7 +22,7 @@
 # region is dotted red so it is visually distinct from the dashed CI loop.
 # ============================================================================
 
-#' SROC plot with 95% confidence and prediction regions + AUC
+#' Plot: SROC curve with confidence and prediction regions and AUC
 #'
 #' @param fit         A `dta_single` object.
 #' @param test.label  Test name shown in the main title (default "test").
@@ -55,6 +55,9 @@
 #'   Default `TRUE`.
 #' @param group.table Build the subgroup figure (tables under the panel)?
 #'   Default `TRUE`; `FALSE` returns the plain ggplot with coloured points.
+#' @param auc_override Optional list with elements `AUC` and `CI`, used in
+#'   place of the computed AUC and its bootstrap interval; the pairwise
+#'   wrapper passes the arm values it has already bootstrapped.
 #' @param group.overall Give every subgroup table a second value column with
 #'   the estimate over all studies, so each level is read against the whole
 #'   study set.  Default `FALSE`.
@@ -568,7 +571,7 @@ dta_sroc <- function(fit,
   p
 }
 
-#' Side-by-side SROC plot for a pairwise / covariate comparison
+#' Plot: two SROC panels side by side for a test comparison
 #'
 #' Convenience wrapper around two `dta_sroc()` calls that arranges the
 #' intervention (`.e`) and control (`.c`) arms next to each other and,

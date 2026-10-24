@@ -2,7 +2,7 @@
 % Please edit documentation in R/loo.R
 \name{dta_loo_plot}
 \alias{dta_loo_plot}
-\title{Leave-one-out sROC panels with summary table}
+\title{Diagnostics: leave-one-out sROC panel with its table}
 \usage{
 dta_loo_plot(
   x,

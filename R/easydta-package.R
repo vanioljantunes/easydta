@@ -1,48 +1,56 @@
 #' easydta: Cochrane-compliant diagnostic test accuracy meta-analysis
 #'
-#' Pedagogical, \pkg{lme4}-based workflow for bivariate binomial GLMM
-#' meta-analysis of diagnostic test accuracy (DTA) studies, following the
-#' Cochrane Handbook for Systematic Reviews of Diagnostic Test Accuracy
-#' (v2.0, 2023), Chapter 10 and Appendix 12 (Takwoingi et al.).
+#' Bivariate binomial GLMM meta-analysis of diagnostic test accuracy (DTA)
+#' studies on top of \pkg{lme4}, following the Cochrane Handbook for
+#' Systematic Reviews of Diagnostic Test Accuracy (v2.0, 2023), Chapter 10
+#' and Appendix 12 (Takwoingi et al.).  One call per deliverable, no other
+#' meta-analysis dependency.
 #'
-#' @section Guides (read in order):
-#' \enumerate{
-#'   \item [easydta-1-data-preparation] -- shaping data and the bundled datasets.
-#'   \item [easydta-2-single-arm] -- one-test meta-analysis.
-#'   \item [easydta-3-pairwise] -- two-test comparison.
-#'   \item [easydta-4-forests] -- coupled forest plots.
-#'   \item [easydta-5-funnels] -- Deeks funnel + asymmetry test.
+#' @section Start here:
+#' \tabular{ll}{
+#'   [easydta-1-data-preparation] \tab Import an Excel sheet, shape it, check it \cr
+#'   [easydta-2-single-arm] \tab One test: fit, read the summary, plot it \cr
+#'   [easydta-3-pairwise] \tab Two tests: paired or between-study, and the variance choice \cr
+#'   [easydta-4-forests] \tab Coupled sensitivity / specificity forests \cr
+#'   [easydta-5-funnels] \tab Deeks funnel and the asymmetry test \cr
+#'   [easydta-package-datasets] \tab The three bundled datasets
 #' }
 #'
-#' @section Single-test workflow:
-#' \describe{
-#'   \item{[dta_fit_single()]}{Fit the bivariate GLMM for one test.}
-#'   \item{[dta_summary()], [dta_derived()]}{Se/Sp, DOR, LR+/LR- with CIs.}
-#'   \item{[dta_forest()], [dta_sroc()], [dta_funnel()],
-#'     [dta_roc_points()]}{Coupled forest, SROC, Deeks funnel, raw ROC scatter.}
+#' @section What you have, and what to call:
+#' \tabular{ll}{
+#'   \strong{You have} \tab \strong{Call} \cr
+#'   One test, one row per study \tab [dta_fit_single()] \cr
+#'   Two tests, the same studies ran both \tab [dta_pairwise()] \cr
+#'   Two tests, each study ran one of them \tab [dta_compare_tests()] \cr
+#'   Counts already stacked in long format \tab [dta_fit_pairwise()] after [dta_reshape()]
 #' }
 #'
-#' @section Pairwise / comparison workflow:
-#' \describe{
-#'   \item{[dta_pairwise()]}{One call for a paired (wide `.e`/`.c`) design.}
-#'   \item{[dta_compare_tests()]}{One call for a between-study covariate design.}
-#'   \item{[dta_fit_pairwise()], [dta_compare()]}{Lower-level nested-model fit
-#'     (models A/B/C/D, equal/unequal variance) and the LR tests + Se/Sp
-#'     differences.}
-#'   \item{[dta_sroc_pair()]}{Side-by-side SROC with a Cochrane differences
-#'     table.}
+#' @section One test, step by step:
+#' \tabular{ll}{
+#'   [dta_fit_single()] \tab Fit the bivariate binomial GLMM \cr
+#'   [dta_summary()] \tab Pooled sensitivity and specificity with CIs \cr
+#'   [dta_derived()] \tab DOR, LR+ and LR- with delta-method CIs \cr
+#'   [dta_forest()] \tab Coupled forest of both measures \cr
+#'   [dta_sroc()] \tab SROC curve, confidence and prediction regions, AUC \cr
+#'   [dta_roc_points()] \tab Raw study points, no model \cr
+#'   [dta_funnel()] \tab Deeks funnel plus asymmetry test \cr
+#'   [dta_loo()], [dta_loo_plot()] \tab Leave-one-out table and sROC panel
 #' }
 #'
-#' @section Reshaping helpers:
-#' \describe{
-#'   \item{[dta_reshape()], [dta_reshape_pairwise()]}{Wide -> long; usually
-#'     called internally.}
+#' @section Two tests, step by step:
+#' \tabular{ll}{
+#'   [dta_pairwise()] \tab Whole pipeline for a paired `.e` / `.c` frame \cr
+#'   [dta_compare_tests()] \tab Whole pipeline for a between-study covariate frame \cr
+#'   [dta_fit_pairwise()] \tab The nested models A / B / C / D on their own \cr
+#'   [dta_compare()] \tab Likelihood-ratio tests and Se / Sp differences \cr
+#'   [dta_sroc_pair()] \tab Both arms side by side with a differences table \cr
+#'   [dta_forest_pair()] \tab Forest of the difference between the two tests
 #' }
 #'
-#' @section Example data:
-#' \describe{
-#'   \item{[anti_ccp1], [anti_ccp2]}{Single-arm anti-CCP subsets (CCP1, CCP2).}
-#'   \item{[schuetz]}{Paired CT vs MRI (direct comparison).}
+#' @section Plumbing you rarely call yourself:
+#' \tabular{ll}{
+#'   [dta_reshape()] \tab Single-arm wide to long \cr
+#'   [dta_reshape_pairwise()] \tab Paired wide to long
 #' }
 #'
 #' @examples
@@ -55,5 +63,4 @@
 #'                     intervention.label = "CT", control.label = "MRI")
 #' print(res)
 #'
-#' @keywords internal
 "_PACKAGE"

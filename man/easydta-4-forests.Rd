@@ -2,16 +2,12 @@
 % Please edit documentation in R/guides.R
 \name{easydta-4-forests}
 \alias{easydta-4-forests}
-\title{easydta guide 4: Forest plots}
+\title{Guide 4: coupled forest plots and their columns}
 \description{
-Coupled sensitivity / specificity forest plots.
-}
-\details{
-\code{\link[=dta_forest]{dta_forest()}} draws a single composite of aligned panels (study labels,
-2x2 counts, sensitivity forest, specificity forest, numeric estimates) and
-draws itself on the current device. For a \code{dta_single} fit, pass it
-directly. For a pairwise result, pick the arm by role with
-\code{test = intervention} or \code{test = control}.
+\code{\link[=dta_forest]{dta_forest()}} draws one composite figure: study labels, the 2x2 counts, a
+sensitivity forest and a specificity forest on the same rows, and the
+numeric estimates. It draws itself on the current device, so wrap it in
+\code{tiff()} or \code{png()} and \code{dev.off()} to save it.
 }
 \examples{
 data(anti_ccp2)
@@ -27,5 +23,6 @@ dta_forest(res, test = intervention)
 
 }
 \seealso{
-\code{\link[=dta_forest]{dta_forest()}}, the next guide \link{easydta-5-funnels}.
+\code{\link[=dta_forest]{dta_forest()}}, \code{\link[=dta_forest_pair]{dta_forest_pair()}}, and the next guide
+\link{easydta-5-funnels}.
 }

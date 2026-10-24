@@ -2,7 +2,7 @@
 % Please edit documentation in R/sroc.R
 \name{dta_sroc}
 \alias{dta_sroc}
-\title{SROC plot with 95\% confidence and prediction regions + AUC}
+\title{Plot: SROC curve with confidence and prediction regions and AUC}
 \usage{
 dta_sroc(
   fit,
@@ -28,6 +28,9 @@ dta_sroc(
   group.name = "subgroup",
   group.curves = TRUE,
   group.table = TRUE,
+  group.overall = FALSE,
+  group.overall.label = "All studies",
+  group.level.label = "This group",
   lr.show = FALSE,
   panel.scale = 1.4,
   auc_override = NULL
@@ -113,11 +116,24 @@ Default \code{TRUE}.}
 \item{group.table}{Build the subgroup figure (tables under the panel)?
 Default \code{TRUE}; \code{FALSE} returns the plain ggplot with coloured points.}
 
+\item{group.overall}{Give every subgroup table a second value column with
+the estimate over all studies, so each level is read against the whole
+study set.  Default \code{FALSE}.}
+
+\item{group.overall.label}{Header of that column (default \code{"All studies"}).}
+
+\item{group.level.label}{Header of the level's own column when
+\code{group.overall = TRUE} (default \code{"This group"}).}
+
 \item{lr.show}{Show LR+ / LR- rows in the subgroup tables? Always
 computed; default \code{FALSE}.}
 
 \item{panel.scale}{Width of the sROC panel relative to the natural width
 of the row of tables (default 1.4).}
+
+\item{auc_override}{Optional list with elements \code{AUC} and \code{CI}, used in
+place of the computed AUC and its bootstrap interval; the pairwise
+wrapper passes the arm values it has already bootstrapped.}
 }
 \value{
 A ggplot object; if \code{auc = TRUE}, \code{attr(x, "AUC")} holds the AUC
@@ -128,7 +144,7 @@ per-level data frames, \code{attr(., "p_subgroup")} the test p-value) whose
 \code{print()} method draws it centred on the device.
 }
 \description{
-SROC plot with 95\% confidence and prediction regions + AUC
+Plot: SROC curve with confidence and prediction regions and AUC
 }
 \examples{
 data(anti_ccp2)

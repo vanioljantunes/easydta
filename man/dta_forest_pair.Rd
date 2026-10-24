@@ -2,7 +2,7 @@
 % Please edit documentation in R/forest_pair.R
 \name{dta_forest_pair}
 \alias{dta_forest_pair}
-\title{Paired forest plot of the difference between two tests}
+\title{Plot: forest of the difference between two tests}
 \usage{
 dta_forest_pair(
   x,

@@ -2,7 +2,7 @@
 % Please edit documentation in R/loo.R
 \name{dta_loo}
 \alias{dta_loo}
-\title{Leave-one-out sensitivity analysis}
+\title{Diagnostics: leave-one-out sensitivity analysis}
 \usage{
 dta_loo(x, conf = 0.95, auc_ci = TRUE, B = 2000, verbose = FALSE)
 }

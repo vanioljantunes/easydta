@@ -2,7 +2,7 @@
 % Please edit documentation in R/summary.R
 \name{dta_summary}
 \alias{dta_summary}
-\title{Tidy summary for a fitted easydta object}
+\title{Results, one test: pooled sensitivity and specificity}
 \usage{
 dta_summary(object, conf = 0.95, ...)
 }
@@ -17,7 +17,7 @@ dta_summary(object, conf = 0.95, ...)
 A data frame of Se/Sp (and derived measures) with CIs.
 }
 \description{
-Tidy summary for a fitted easydta object
+Results, one test: pooled sensitivity and specificity
 }
 \examples{
 data(anti_ccp2)

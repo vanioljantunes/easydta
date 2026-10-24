@@ -2,22 +2,11 @@
 % Please edit documentation in R/guides.R
 \name{easydta-3-pairwise}
 \alias{easydta-3-pairwise}
-\title{easydta guide 3: Pairwise analysis}
+\title{Guide 3: two tests, the design, the variance choice and the tests}
 \description{
-Compare two diagnostic tests head-to-head (Cochrane Handbook Appendix 12).
-}
-\details{
-Two entry points return the same \code{dta_pairwise_result}:
-\itemize{
-\item \code{\link[=dta_pairwise]{dta_pairwise()}} for a \strong{paired} wide \code{.e}/\code{.c} frame (each
-study did both tests, e.g. \link{schuetz}).
-\item \code{\link[=dta_compare_tests]{dta_compare_tests()}} for a \strong{between-study covariate} frame
-(each study did one test, e.g. \code{rbind(anti_ccp1, anti_ccp2)}).
-}
-Both fit the nested models A/B/C/D, run likelihood-ratio tests (overall,
-Sens-differs, Spec-differs) and delta-method Se/Sp differences. \code{variance = "equal"} is Cochrane model B (default); \code{"unequal"} is model E (separate
-between-study variances per test). Visualise with \code{\link[=dta_sroc_pair]{dta_sroc_pair()}} and
-per-arm \code{\link[=dta_forest]{dta_forest()}} / \code{\link[=dta_funnel]{dta_funnel()}}.
+Comparing two index tests (Cochrane Handbook Appendix 12). The design
+decides the entry point, and the random-effects structure is the one
+argument that changes the answer, so it gets a section of its own.
 }
 \examples{
 data(schuetz)
@@ -27,6 +16,7 @@ print(res)
 
 }
 \seealso{
-\code{\link[=dta_pairwise]{dta_pairwise()}}, \code{\link[=dta_compare_tests]{dta_compare_tests()}}, \code{\link[=dta_sroc_pair]{dta_sroc_pair()}},
-the next guide \link{easydta-4-forests}.
+\code{\link[=dta_pairwise]{dta_pairwise()}}, \code{\link[=dta_compare_tests]{dta_compare_tests()}}, \code{\link[=dta_fit_pairwise]{dta_fit_pairwise()}},
+\code{\link[=dta_compare]{dta_compare()}}, \code{\link[=dta_sroc_pair]{dta_sroc_pair()}}, and the next guide
+\link{easydta-4-forests}.
 }

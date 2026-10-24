@@ -31,7 +31,7 @@
 # readability; the summary row is never striped.
 # ============================================================================
 
-#' Coupled sensitivity / specificity forest plot
+#' Plot: coupled sensitivity and specificity forest
 #'
 #' @param fit    Either a `dta_single` object, or a `dta_pairwise_result`
 #'   (from `dta_pairwise()` / `dta_compare_tests()`) -- in which case `test`
@@ -248,9 +248,9 @@ dta_forest <- function(fit, test, conf = 0.95, digits = 2,
   # Single bivariate I^2 annotation, shown under the summary label only.
   het <- fit$heterogeneity
   if (!is.null(het)) {
-    i2_biv_text <- sprintf("I² = %.1f%%", 100 * het$I2_biv)
+    i2_biv_text <- sprintf("I\u00b2 = %.1f%%", 100 * het$I2_biv)
   } else {
-    i2_biv_text <- "I²: NA"
+    i2_biv_text <- "I\u00b2: NA"
   }
   i2_size <- 3.0  # standard cell font, own row (matches cell_size)
 

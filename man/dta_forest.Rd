@@ -2,7 +2,7 @@
 % Please edit documentation in R/forest.R
 \name{dta_forest}
 \alias{dta_forest}
-\title{Coupled sensitivity / specificity forest plot}
+\title{Plot: coupled sensitivity and specificity forest}
 \usage{
 dta_forest(
   fit,
@@ -69,7 +69,7 @@ should not be pooled together. Default \code{TRUE}.}
 A gtable object drawn on the current device.
 }
 \description{
-Coupled sensitivity / specificity forest plot
+Plot: coupled sensitivity and specificity forest
 }
 \examples{
 data(anti_ccp2)

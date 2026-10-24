@@ -2,7 +2,7 @@
 # roc_points.R  -  Raw study points on ROC space (sanity-check scatter)
 # ============================================================================
 
-#' Raw study-level ROC scatter
+#' Plot: raw study points in ROC space, no model
 #'
 #' @param data  Wide data frame (one row per study) with TP/FP/FN/TN columns.
 #' @param tp,fp,fn,tn Column names.

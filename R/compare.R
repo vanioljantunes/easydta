@@ -7,7 +7,7 @@
 #   between the two tests computed from model B via msm::deltamethod.
 # ============================================================================
 
-#' Likelihood-ratio tests and Se/Sp differences between two tests
+#' Results, two tests: likelihood-ratio tests and Se / Sp differences
 #'
 #' @param object  A `dta_pairwise` object from [dta_fit_pairwise()].
 #' @param conf    Confidence level for difference CIs (default 0.95).

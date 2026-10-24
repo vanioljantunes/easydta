@@ -155,7 +155,7 @@
                                      overall.label = "All studies") {
   out <- data.frame(
     Measure = c("Studies", "Sensitivity", "Specificity", "AUC", "LR+", "LR-",
-                "I²"),
+                "I\u00b2"),
     Estimate = .sroc_group_table_col(fit, k, conf, auc_ci, B, digits),
     stringsAsFactors = FALSE, check.names = FALSE)
   if (!is.null(overall)) {
@@ -178,7 +178,7 @@
   long <- x$long[x$long$studlab %in% studs, , drop = FALSE]
   tv   <- x$test_var
   nAGQ <- x$pair$call_args$nAGQ; if (is.null(nAGQ)) nAGQ <- 1L
-  variance <- x$pair$variance;  if (is.null(variance)) variance <- "equal"
+  variance <- x$pair$variance;  if (is.null(variance)) variance <- "unequal"
   n_arm <- vapply(c(arm.e, arm.c), function(a)
     length(unique(long$studlab[long[[tv]] == a])), integer(1))
   res <- if (all(n_arm >= 2)) tryCatch(suppressWarnings(list(

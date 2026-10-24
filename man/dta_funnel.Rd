@@ -2,7 +2,7 @@
 % Please edit documentation in R/funnel.R
 \name{dta_funnel}
 \alias{dta_funnel}
-\title{Deeks funnel plot + Deeks test for asymmetry (DOR scale)}
+\title{Plot: Deeks funnel and asymmetry test for publication bias}
 \usage{
 dta_funnel(
   fit,

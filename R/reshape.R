@@ -20,7 +20,7 @@
 # Cochrane ref: Appendix 5, p.12 (single); Appendix 12, p.55-56 (pairwise).
 # ============================================================================
 
-#' Reshape wide 2x2 data (single-test) into long sens/spec format
+#' Data prep: single-arm wide 2x2 counts to long format
 #'
 #' @param data    Data frame with one row per study.
 #' @param tp,fp,fn,tn  Column names (strings) for TP/FP/FN/TN counts.
@@ -80,7 +80,7 @@ dta_reshape <- function(data,
   Y
 }
 
-#' Reshape paired-design wide data (intervention vs control) into long form
+#' Data prep: paired wide 2x2 counts to long format
 #'
 #' Accepts one row per study with both arms of a paired comparison side by
 #' side (the `.e` suffix for the experimental / intervention arm, `.c` for

@@ -2,7 +2,7 @@
 % Please edit documentation in R/reshape.R
 \name{dta_reshape}
 \alias{dta_reshape}
-\title{Reshape wide 2x2 data (single-test) into long sens/spec format}
+\title{Data prep: single-arm wide 2x2 counts to long format}
 \usage{
 dta_reshape(
   data,
@@ -28,7 +28,7 @@ A long-format data frame with columns: studlab, sens, spec,
 true, n, plus any \code{extra} columns.
 }
 \description{
-Reshape wide 2x2 data (single-test) into long sens/spec format
+Data prep: single-arm wide 2x2 counts to long format
 }
 \examples{
 data(anti_ccp2)

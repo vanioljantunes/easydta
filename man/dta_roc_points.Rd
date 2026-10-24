@@ -2,7 +2,7 @@
 % Please edit documentation in R/roc_points.R
 \name{dta_roc_points}
 \alias{dta_roc_points}
-\title{Raw study-level ROC scatter}
+\title{Plot: raw study points in ROC space, no model}
 \usage{
 dta_roc_points(
   data,
@@ -24,7 +24,7 @@ dta_roc_points(
 A ggplot object.
 }
 \description{
-Raw study-level ROC scatter
+Plot: raw study points in ROC space, no model
 }
 \examples{
 data(anti_ccp2)

@@ -2,7 +2,7 @@
 % Please edit documentation in R/reshape.R
 \name{dta_reshape_pairwise}
 \alias{dta_reshape_pairwise}
-\title{Reshape paired-design wide data (intervention vs control) into long form}
+\title{Data prep: paired wide 2x2 counts to long format}
 \usage{
 dta_reshape_pairwise(
   data,

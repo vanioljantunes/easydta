@@ -43,7 +43,7 @@
              stringsAsFactors = FALSE)
 }
 
-#' Paired forest plot of the difference between two tests
+#' Plot: forest of the difference between two tests
 #'
 #' For every study that contributes both tests, plots the difference in
 #' sensitivity (and/or specificity) between the intervention arm (`.e`) and

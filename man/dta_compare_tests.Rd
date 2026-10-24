@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{dta_compare_tests}
 \alias{dta_compare_tests}
-\title{One-call test-comparison meta-analysis (covariate / unpaired design)}
+\title{Compare two tests, between-study design: fit, tests and per-arm fits in one call}
 \usage{
 dta_compare_tests(
   data,
@@ -12,7 +12,7 @@ dta_compare_tests(
   fp = "FP",
   fn = "FN",
   tn = "TN",
-  variance = c("equal", "unequal"),
+  variance = c("unequal", "equal"),
   nAGQ = 1L,
   conf = 0.95
 )
@@ -27,8 +27,9 @@ two-level test-type column.}
 
 \item{tp, fp, fn, tn}{Column names for the 2x2 counts.}
 
-\item{variance}{Random-effects structure for the comparison: \code{"equal"}
-(default, model B) or \code{"unequal"} (model E). See \code{\link[=dta_fit_pairwise]{dta_fit_pairwise()}}.}
+\item{variance}{Random-effects structure for the comparison: \code{"unequal"}
+(default, model E, one between-study variance pair per test) or
+\code{"equal"} (model B, shared). See \code{\link[=dta_fit_pairwise]{dta_fit_pairwise()}}.}
 
 \item{nAGQ}{Integer; Laplace by default.}
 

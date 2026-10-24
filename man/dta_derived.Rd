@@ -2,7 +2,7 @@
 % Please edit documentation in R/summary.R
 \name{dta_derived}
 \alias{dta_derived}
-\title{Derived measures (DOR, LR+, LR-) with delta-method CIs}
+\title{Results, one test: DOR and likelihood ratios with delta-method CIs}
 \usage{
 dta_derived(fit, conf = 0.95)
 }

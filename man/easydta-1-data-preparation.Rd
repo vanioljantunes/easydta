@@ -2,77 +2,14 @@
 % Please edit documentation in R/guides.R
 \name{easydta-1-data-preparation}
 \alias{easydta-1-data-preparation}
-\title{easydta guide 1: Data preparation}
+\title{Guide 1: from the Excel file to a checked data frame}
 \description{
-How to shape diagnostic test accuracy (DTA) data for \code{easydta} and which
-bundled datasets to use.
+Everything that happens before the first model: installing, importing the
+sheet, the two layouts \code{easydta} accepts, and the checks worth running
+before you fit anything.
 }
-\details{
-\code{easydta} accepts two wide layouts, one row per study:
-
-\strong{Single-arm wide} -- one test, many studies. Columns
-\verb{studlab, TP, FP, FN, TN} (plus optional covariates). Feed to
-\code{\link[=dta_fit_single]{dta_fit_single()}} (with \code{wide = TRUE}) or stack two arms and feed to
-\code{\link[=dta_compare_tests]{dta_compare_tests()}} as a between-study covariate.
-
-\strong{Paired wide} -- two tests in the \emph{same} studies. One row per
-study with \code{.e} (index) and \code{.c} (comparator) suffixed counts
-(\verb{TP.e, FP.e, ..., TP.c, FP.c, ...}) and a shared \code{studlab}. Feed to
-\code{\link[=dta_pairwise]{dta_pairwise()}}.
-
-Bundled datasets: \link{anti_ccp1} / \link{anti_ccp2} (single-arm anti-CCP subsets)
-and \link{schuetz} (paired CT vs MRI). \code{\link[=dta_reshape]{dta_reshape()}} and
-\code{\link[=dta_reshape_pairwise]{dta_reshape_pairwise()}} convert wide to the long format the fitters use,
-but the one-call wrappers reshape internally.
-}
-\section{Tutorial, from an Excel sheet}{
-
-\if{html}{\figure{tutorial.png}{options: width="100\%" alt="easydta tutorial"}}
-\enumerate{
-\item Prepare packages:
-}
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{install.packages(c("remotes", "rstudioapi", "readxl"))
-remotes::install_github("vanioljantunes/easydta")
-library(easydta); library(rstudioapi); library(readxl)
-}\if{html}{\out{</div>}}
-\enumerate{
-\item Load the data. One row per study with \verb{studlab, TP, FP, FN, TN}
-(paired: \code{.e} / \code{.c} suffixed counts):
-}
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{myfile <- selectFile()
-sheet_names <- excel_sheets(myfile)
-ma <- lapply(sheet_names, function(x)
-  as.data.frame(read_excel(myfile, sheet = x)))
-names(ma) <- sheet_names
-d <- ma$CCP2
-}\if{html}{\out{</div>}}
-\enumerate{
-\item One test: fit, then plot:
-}
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{fit <- dta_fit_single(d, tp = "TP", fp = "FP", fn = "FN", tn = "TN",
-                      studlab = "studlab")
-dta_forest(fit)
-dta_sroc(fit, test.label = "anti-CCP2",
-         outcome = "rheumatoid arthritis", population = "adults")
-dta_funnel(fit, test.label = "anti-CCP2",
-           outcome = "rheumatoid arthritis", population = "adults")
-}\if{html}{\out{</div>}}
-\enumerate{
-\item Two tests in the same studies: compare:
-}
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{res <- dta_pairwise(schuetz, studlab = "studlab",
-                    intervention.label = "CT", control.label = "MRI")
-dta_sroc_pair(res, outcome = "coronary artery disease",
-              population = "adults with suspected CAD")
-}\if{html}{\out{</div>}}
-}
-
 \examples{
-data(anti_ccp2)   # single-arm: studlab, TP, FP, FN, TN, test
+data(anti_ccp2)   # single-arm wide: studlab, TP, FP, FN, TN, test
 head(anti_ccp2)
 
 data(schuetz)     # paired wide: studlab + .e (CT) / .c (MRI) counts
@@ -80,6 +17,6 @@ head(schuetz)
 
 }
 \seealso{
-\code{\link[=dta_reshape]{dta_reshape()}}, \code{\link[=dta_reshape_pairwise]{dta_reshape_pairwise()}},
-the next guide \link{easydta-2-single-arm}.
+\link{easydta-package-datasets}, \code{\link[=dta_reshape]{dta_reshape()}},
+\code{\link[=dta_reshape_pairwise]{dta_reshape_pairwise()}}, and the next guide \link{easydta-2-single-arm}.
 }

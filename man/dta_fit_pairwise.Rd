@@ -2,12 +2,12 @@
 % Please edit documentation in R/fit.R
 \name{dta_fit_pairwise}
 \alias{dta_fit_pairwise}
-\title{Fit the bivariate meta-regression for pairwise test comparison}
+\title{Fit, two tests: nested bivariate meta-regression (models A to D)}
 \usage{
 dta_fit_pairwise(
   long,
   test_var,
-  variance = c("equal", "unequal"),
+  variance = c("unequal", "equal"),
   nAGQ = 1L,
   wide = FALSE,
   ...
@@ -21,9 +21,9 @@ dta_fit_pairwise(
 \item{test_var}{Name (string) of the test-type column -- must have
 exactly two distinct non-NA values.}
 
-\item{variance}{Random-effects structure: \code{"equal"} (default, model B,
-shared between-study variances) or \code{"unequal"} (model E, separate
-per-test variances).}
+\item{variance}{Random-effects structure: \code{"unequal"} (default, model E,
+separate between-study variances per test) or \code{"equal"} (model B, one
+shared block).}
 
 \item{nAGQ}{Integer; Laplace by default.}
 
@@ -46,11 +46,15 @@ D. sens-varies only:    0 + seA + seB + spec
 
 The random-effects structure is controlled by \code{variance}:
 \itemize{
-\item \code{"equal"}   (default, Cochrane model B): a single shared block
-\code{(0 + sens + spec | study_id)} in every model.
-\item \code{"unequal"} (Cochrane model E): two per-test blocks
-\code{(0 + seA + spA | study_id) + (0 + seB + spB | study_id)}, allowing
-each test its own between-study variances and covariance.
+\item \code{"unequal"} (default, Cochrane model E): two per-test blocks
+\code{(0 + seA + spA | study_id) + (0 + seB + spB | study_id)}, so each test
+carries its own between-study variances and covariance.  Two tests
+rarely scatter to the same degree across studies, so this is the
+honest default; it costs three extra variance parameters.
+\item \code{"equal"}   (Cochrane model B): a single shared block
+\code{(0 + sens + spec | study_id)} in every model.  Use it when the
+unequal fit is singular or will not converge, which is common with
+fewer than about ten studies per test.
 }
 
 The chosen structure is applied to all four nested models so the

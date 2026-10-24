@@ -19,7 +19,7 @@
 #   with weights = ESS_i.  Test of the slope coefficient = 0.
 # ============================================================================
 
-#' Deeks funnel plot + Deeks test for asymmetry (DOR scale)
+#' Plot: Deeks funnel and asymmetry test for publication bias
 #'
 #' Cochrane-recommended publication-bias diagnostic for DTA meta-analysis
 #' (Handbook v2.0 ch. 10.6.4; Deeks, Macaskill & Irwig 2005).  Produces a

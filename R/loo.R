@@ -27,7 +27,7 @@
 # one letter-coded row per omitted study plus the pooled estimate.
 # ============================================================================
 
-#' Leave-one-out sensitivity analysis
+#' Diagnostics: leave-one-out sensitivity analysis
 #'
 #' Refits the model once per study with that study removed and collects
 #' the pooled measures each time, like `meta::metainf()`.  For a single
@@ -184,7 +184,7 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
   nAGQ     <- x$pair$call_args$nAGQ
   variance <- x$pair$variance
   if (is.null(nAGQ)) nAGQ <- 1L
-  if (is.null(variance)) variance <- "equal"
+  if (is.null(variance)) variance <- "unequal"
 
   arm_fit <- function(sub, arm) {
     dta_fit_single(sub[sub[[tv]] == arm, , drop = FALSE], wide = FALSE,
@@ -403,7 +403,7 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 
 # -- sROC panels + summary table figure ------------------------------------
 
-#' Leave-one-out sROC panels with summary table
+#' Diagnostics: leave-one-out sROC panel with its table
 #'
 #' Draws the leave-one-out analysis of [dta_loo()] in the layout of
 #' [dta_sroc_pair()]: the sROC panels on top (one per arm for a comparison,
@@ -477,9 +477,9 @@ dta_loo_plot <- function(x, table = TRUE,
   tbl_df <- cbind(data.frame(" " = loo$table$letter, check.names = FALSE),
                   .loo_display(loo, digits, lr.show, i2.show))
   # console print keeps ASCII "d"; the drawn table uses the delta sign
-  names(tbl_df) <- sub("^d(Sens|Spec|AUC|LR)", "Δ\\1", names(tbl_df))
+  names(tbl_df) <- sub("^d(Sens|Spec|AUC|LR)", "\u0394\\1", names(tbl_df))
   # and the I2 column(s) are drawn with the superscript
-  names(tbl_df) <- sub("^I2", "I²", names(tbl_df))
+  names(tbl_df) <- sub("^I2", "I\u00b2", names(tbl_df))
   if (isTRUE(table)) {
     face <- ifelse(loo$table$pooled, "bold", "plain")
     tbl_grob <- gridExtra::tableGrob(

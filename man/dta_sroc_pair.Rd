@@ -2,7 +2,7 @@
 % Please edit documentation in R/sroc.R
 \name{dta_sroc_pair}
 \alias{dta_sroc_pair}
-\title{Side-by-side SROC plot for a pairwise / covariate comparison}
+\title{Plot: two SROC panels side by side for a test comparison}
 \usage{
 dta_sroc_pair(
   x,

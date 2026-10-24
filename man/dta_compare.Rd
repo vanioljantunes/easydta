@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare.R
 \name{dta_compare}
 \alias{dta_compare}
-\title{Likelihood-ratio tests and Se/Sp differences between two tests}
+\title{Results, two tests: likelihood-ratio tests and Se / Sp differences}
 \usage{
 dta_compare(object, conf = 0.95)
 }
@@ -15,7 +15,7 @@ dta_compare(object, conf = 0.95)
 An S3 \code{dta_compare} object.
 }
 \description{
-Likelihood-ratio tests and Se/Sp differences between two tests
+Results, two tests: likelihood-ratio tests and Se / Sp differences
 }
 \examples{
 data(schuetz)

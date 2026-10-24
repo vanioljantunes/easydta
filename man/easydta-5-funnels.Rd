@@ -2,17 +2,12 @@
 % Please edit documentation in R/guides.R
 \name{easydta-5-funnels}
 \alias{easydta-5-funnels}
-\title{easydta guide 5: Funnel plots}
+\title{Guide 5: Deeks funnel and reading the asymmetry test}
 \description{
-Deeks funnel plot and asymmetry test (publication-bias diagnostic).
-}
-\details{
-\code{\link[=dta_funnel]{dta_funnel()}} (Cochrane Handbook v2.0 sec. 10.6.4; Deeks, Macaskill &
-Irwig 2005) plots \code{ln(DOR)} against \code{1 / sqrt(ESS)} (y-axis reversed so
-large studies sit at the top) with contour pseudo-CI bands, and reports the
-weighted-regression Deeks asymmetry test beneath. A slope p-value < 0.05
-suggests asymmetry consistent with publication bias. The returned object
-draws itself when printed. For a pairwise result, select an arm with \code{arm}.
+The publication-bias diagnostic Cochrane recommends for DTA (Handbook v2.0
+section 10.6.4; Deeks, Macaskill and Irwig 2005). An ordinary funnel plot
+of sensitivity is not valid here; Deeks' version is built for the DOR
+scale.
 }
 \examples{
 data(anti_ccp2)
@@ -22,5 +17,6 @@ dta_funnel(fit, test.label = "anti-CCP2",
 
 }
 \seealso{
-\code{\link[=dta_funnel]{dta_funnel()}}, the package overview \link{easydta-package}.
+\code{\link[=dta_funnel]{dta_funnel()}}, \code{\link[=dta_loo]{dta_loo()}}, and the package overview
+\link{easydta-package}.
 }

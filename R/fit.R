@@ -14,7 +14,7 @@
 #   $Psi         -- between-study VCV (2x2 random-effect covariance)
 # ============================================================================
 
-#' Fit the bivariate binomial GLMM for a single diagnostic test
+#' Fit, one test: bivariate binomial GLMM
 #'
 #' Implements Cochrane Handbook Appendix 5 (Takwoingi et al., 2023):
 #'
@@ -74,7 +74,7 @@ dta_fit_single <- function(data, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
   out
 }
 
-#' Fit the bivariate meta-regression for pairwise test comparison
+#' Fit, two tests: nested bivariate meta-regression (models A to D)
 #'
 #' Fits four nested models in the order recommended by Cochrane Handbook
 #' Appendix 12 (p.56-57):
@@ -85,11 +85,15 @@ dta_fit_single <- function(data, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
 #'   D. sens-varies only:    0 + seA + seB + spec
 #'
 #' The random-effects structure is controlled by `variance`:
-#'   * `"equal"`   (default, Cochrane model B): a single shared block
-#'     `(0 + sens + spec | study_id)` in every model.
-#'   * `"unequal"` (Cochrane model E): two per-test blocks
-#'     `(0 + seA + spA | study_id) + (0 + seB + spB | study_id)`, allowing
-#'     each test its own between-study variances and covariance.
+#'   * `"unequal"` (default, Cochrane model E): two per-test blocks
+#'     `(0 + seA + spA | study_id) + (0 + seB + spB | study_id)`, so each test
+#'     carries its own between-study variances and covariance.  Two tests
+#'     rarely scatter to the same degree across studies, so this is the
+#'     honest default; it costs three extra variance parameters.
+#'   * `"equal"`   (Cochrane model B): a single shared block
+#'     `(0 + sens + spec | study_id)` in every model.  Use it when the
+#'     unequal fit is singular or will not converge, which is common with
+#'     fewer than about ten studies per test.
 #'
 #' The chosen structure is applied to all four nested models so the
 #' likelihood-ratio ladder stays nested.
@@ -102,9 +106,9 @@ dta_fit_single <- function(data, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
 #'   `wide = TRUE`.
 #' @param test_var  Name (string) of the test-type column -- must have
 #'   exactly two distinct non-NA values.
-#' @param variance  Random-effects structure: `"equal"` (default, model B,
-#'   shared between-study variances) or `"unequal"` (model E, separate
-#'   per-test variances).
+#' @param variance  Random-effects structure: `"unequal"` (default, model E,
+#'   separate between-study variances per test) or `"equal"` (model B, one
+#'   shared block).
 #' @param nAGQ      Integer; Laplace by default.
 #' @param wide      Logical. If TRUE, reshape first.
 #' @param ...       Forwarded to `dta_reshape()` when `wide = TRUE`.
@@ -119,7 +123,7 @@ dta_fit_single <- function(data, nAGQ = 1L, wide = NA, conf = 0.95, ...) {
 #' @export
 dta_fit_pairwise <- function(long,
                              test_var,
-                             variance = c("equal", "unequal"),
+                             variance = c("unequal", "equal"),
                              nAGQ = 1L,
                              wide = FALSE,
                              ...) {
@@ -184,7 +188,7 @@ dta_fit_pairwise <- function(long,
   out
 }
 
-#' One-call pairwise DTA meta-analysis (paired wide design)
+#' Compare two tests, paired design: fit, tests and per-arm fits in one call
 #'
 #' Takes a single wide data frame -- one row per study, with `.e`
 #' (intervention / index) and `.c` (control / comparator) suffixed count
@@ -205,8 +209,9 @@ dta_fit_pairwise <- function(long,
 #'   `dta_sroc_pair()`.  Default `"Intervention"`.
 #' @param control.label  Display label for the control / comparator arm (the
 #'   `.c` columns); the `control` role.  Default `"Control"`.
-#' @param variance  Random-effects structure for the comparison: `"equal"`
-#'   (default, model B) or `"unequal"` (model E). See [dta_fit_pairwise()].
+#' @param variance  Random-effects structure for the comparison: `"unequal"`
+#'   (default, model E, one between-study variance pair per test) or
+#'   `"equal"` (model B, shared). See [dta_fit_pairwise()].
 #' @param nAGQ  Integer; Laplace by default (passed to both fitters).
 #' @param conf  Confidence level used by per-arm heterogeneity summaries
 #'   and by `dta_compare()` (default 0.95).
@@ -238,7 +243,7 @@ dta_pairwise <- function(data,
                          tn.c         = "TN.c",
                          studlab      = NULL,
                          test_var     = "test",
-                         variance     = c("equal", "unequal"),
+                         variance     = c("unequal", "equal"),
                          nAGQ         = 1L,
                          conf         = 0.95) {
   variance <- match.arg(variance)
@@ -278,7 +283,7 @@ dta_pairwise <- function(data,
   out
 }
 
-#' One-call test-comparison meta-analysis (covariate / unpaired design)
+#' Compare two tests, between-study design: fit, tests and per-arm fits in one call
 #'
 #' Sister of [dta_pairwise()] for the case where two diagnostic tests are
 #' compared via a between-study covariate (Cochrane Handbook chapter 10 /
@@ -296,8 +301,9 @@ dta_pairwise <- function(data,
 #' @param test_var  Name (string) of the test-type column.
 #' @param studlab   Column name of the study label (default `"studlab"`).
 #' @param tp,fp,fn,tn  Column names for the 2x2 counts.
-#' @param variance  Random-effects structure for the comparison: `"equal"`
-#'   (default, model B) or `"unequal"` (model E). See [dta_fit_pairwise()].
+#' @param variance  Random-effects structure for the comparison: `"unequal"`
+#'   (default, model E, one between-study variance pair per test) or
+#'   `"equal"` (model B, shared). See [dta_fit_pairwise()].
 #' @param nAGQ      Integer; Laplace by default.
 #' @param conf      Confidence level (default 0.95).
 #'
@@ -314,7 +320,7 @@ dta_compare_tests <- function(data,
                               test_var,
                               studlab = "studlab",
                               tp = "TP", fp = "FP", fn = "FN", tn = "TN",
-                              variance = c("equal", "unequal"),
+                              variance = c("unequal", "equal"),
                               nAGQ = 1L,
                               conf = 0.95) {
   variance <- match.arg(variance)

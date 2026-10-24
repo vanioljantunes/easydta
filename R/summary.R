@@ -5,7 +5,7 @@
 # canonical delta-method recipe using msm::deltamethod on vcov(fit).
 # ============================================================================
 
-#' Tidy summary for a fitted easydta object
+#' Results, one test: pooled sensitivity and specificity
 #'
 #' @param object A `dta_single` or `dta_pairwise` object.
 #' @param conf  Confidence level (default 0.95).
@@ -81,7 +81,7 @@ dta_summary.dta_pairwise <- function(object, conf = 0.95, ...) {
   rbind(rows, d_rows[, c("test", "measure", "estimate", "lci", "uci")])
 }
 
-#' Derived measures (DOR, LR+, LR-) with delta-method CIs
+#' Results, one test: DOR and likelihood ratios with delta-method CIs
 #'
 #' Cochrane ref: Appendix 5, p.14.
 #'

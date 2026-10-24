@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{dta_pairwise}
 \alias{dta_pairwise}
-\title{One-call pairwise DTA meta-analysis (paired wide design)}
+\title{Compare two tests, paired design: fit, tests and per-arm fits in one call}
 \usage{
 dta_pairwise(
   data,
@@ -20,7 +20,7 @@ dta_pairwise(
   tn.c = "TN.c",
   studlab = NULL,
   test_var = "test",
-  variance = c("equal", "unequal"),
+  variance = c("unequal", "equal"),
   nAGQ = 1L,
   conf = 0.95
 )
@@ -51,8 +51,9 @@ of \code{paste(author, year)}.  If NULL (default), the studlab is built as
 \item{test_var}{Name for the stacked test-type column (default
 \code{"test"}).  Pass this same name to \code{dta_fit_pairwise(test_var = ...)}.}
 
-\item{variance}{Random-effects structure for the comparison: \code{"equal"}
-(default, model B) or \code{"unequal"} (model E). See \code{\link[=dta_fit_pairwise]{dta_fit_pairwise()}}.}
+\item{variance}{Random-effects structure for the comparison: \code{"unequal"}
+(default, model E, one between-study variance pair per test) or
+\code{"equal"} (model B, shared). See \code{\link[=dta_fit_pairwise]{dta_fit_pairwise()}}.}
 
 \item{nAGQ}{Integer; Laplace by default (passed to both fitters).}
 
