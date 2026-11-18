@@ -33,6 +33,9 @@ dta_sroc(
   group.level.label = "This group",
   lr.show = FALSE,
   panel.scale = 1.4,
+  group.table.style = c("combined", "separate"),
+  group.width = 7,
+  group.pooled = TRUE,
   auc_override = NULL
 )
 }
@@ -129,7 +132,22 @@ study set.  Default \code{FALSE}.}
 computed; default \code{FALSE}.}
 
 \item{panel.scale}{Width of the sROC panel relative to the natural width
-of the row of tables (default 1.4).}
+of the row of tables when \code{group.table.style = "separate"} (default 1.4).}
+
+\item{group.table.style}{\code{"combined"} (the default) puts one table under the
+panel: the Measure column once, then one value column per level headed by
+its symbol, so the figure keeps a standard size.  \code{"separate"} draws one
+bordered table per level side by side, as before.}
+
+\item{group.width}{Figure width in inches for the combined layout (default
+7); it grows only if the table needs more room.  The figure is square plus
+the title, axis and table height; \code{attr(., "width")} / \code{attr(., "height")}
+give the size to open the device with.}
+
+\item{group.pooled}{Draw the curve, summary point and confidence region
+pooled over all levels (and its summary box)?  Default \code{TRUE}.  Set
+\code{FALSE} when the levels must not be pooled, e.g. trimesters on scales
+that differ: only the per-level curves and the level table remain.}
 
 \item{auc_override}{Optional list with elements \code{AUC} and \code{CI}, used in
 place of the computed AUC and its bootstrap interval; the pairwise

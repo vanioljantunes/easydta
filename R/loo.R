@@ -428,6 +428,7 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' @param digits  Display digits for the table (default 2).
 #' @param lr.show Logical. Show the LR+ / LR- columns? They are always
 #'   computed (see `x$table`); default `FALSE` keeps the table compact.
+#' @param title Panel title of the single-test plot (default "sROC omitting each study").
 #' @param i2.show Logical. Show the Zhou-Dendukuri bivariate I^2 column
 #'   (one per arm for a comparison)? Default `TRUE`.
 #' @param ...     Forwarded to [dta_loo()] when `x` is not a `dta_loo`.
@@ -445,7 +446,8 @@ plot.dta_loo <- function(x, ...) dta_loo_plot(x, ...)
 #' @export
 dta_loo_plot <- function(x, table = TRUE,
                          table.position = c("below", "right", "left", "above"),
-                         digits = 2, lr.show = FALSE, i2.show = TRUE, ...) {
+                         digits = 2, lr.show = FALSE, i2.show = TRUE,
+                         title = NULL, ...) {
   # tolerate the informal spellings "bellow" / "up"
   table.position <- switch(as.character(table.position[1]),
                            bellow = "below", up = "above", table.position[1])
@@ -458,7 +460,7 @@ dta_loo_plot <- function(x, table = TRUE,
 
   if (loo$type == "single") {
     p <- .loo_sroc_panel(loo$geom, loo$geom_full, loo$points, loo$letters,
-                         cols, "sROC omitting each study")
+                         cols, if (is.null(title)) "sROC omitting each study" else title)
     panels_list <- list(p)
     panels <- gridExtra::arrangeGrob(p, ncol = 1)
   } else {
@@ -562,11 +564,24 @@ print.dta_loo_plot <- function(x, ...) {
                         x = 1 - stats::plogis(geom_full$lspec),
                         y = stats::plogis(geom_full$lsens),
                         shape = 16, size = 3, colour = "black")
-  p +
+  # letters of studies that sit close together are pushed apart (ggrepel, when
+  # installed) with a short leader to a small dot at the study's own position
+  p <- if (requireNamespace("ggrepel", quietly = TRUE)) p +
+    ggplot2::geom_point(data = pts, ggplot2::aes(x = fpr, y = tpr, colour = letter),
+                        size = 0.9) +
+    ggrepel::geom_text_repel(data = pts,
+                             ggplot2::aes(x = fpr, y = tpr, label = letter,
+                                          colour = letter),
+                             size = 3, fontface = "bold", seed = 1,
+                             min.segment.length = 0, segment.size = 0.25,
+                             box.padding = 0.15, point.padding = 0.1,
+                             max.overlaps = Inf)
+  else p +
     ggplot2::geom_text(data = pts,
                        ggplot2::aes(x = fpr, y = tpr, label = letter,
                                     colour = letter),
-                       size = 3, fontface = "bold") +
+                       size = 3, fontface = "bold")
+  p +
     ggplot2::scale_colour_manual(values = cols, guide = "none") +
     ggplot2::scale_x_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1),
                                 expand = ggplot2::expansion(mult = 0.02)) +

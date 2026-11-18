@@ -71,15 +71,19 @@
 
 # -- Tests for subgroup differences ----------------------------------------
 
-# Single test: overall LR test of the subgroup covariate (needs exactly two
-# levels with at least two studies each; NA otherwise).
+# Single test: overall LR test of the subgroup covariate.  Levels with fewer
+# than two studies cannot be estimated and are left out of the test.  Two
+# testable levels and nothing dropped: the dta_compare_tests() 2-df test, as
+# before.  Otherwise: .sroc_group_test_multi(), 2 * (L - 1) df.
 .sroc_group_test_single <- function(fit, grp, conf) {
   long  <- fit$long
   studs <- sort(unique(as.character(long$studlab)))
   cnt   <- .extract_counts(fit, NULL)
   ok    <- !is.na(grp)
-  levs  <- unique(grp[ok])
-  if (length(levs) != 2 || any(table(grp[ok]) < 2)) return(NA_real_)
+  k_lv  <- table(grp[ok])
+  if (sum(k_lv >= 2) < 2) return(NA_real_)
+  if (length(k_lv) != 2 || any(k_lv < 2))
+    return(.sroc_group_test_multi(fit, grp))
   wd <- data.frame(studlab = studs[ok], TP = cnt$TP[ok], FP = cnt$FP[ok],
                    FN = cnt$FN[ok], TN = cnt$TN[ok], subgroup = grp[ok],
                    stringsAsFactors = FALSE)
@@ -87,6 +91,39 @@
     dta_compare_tests(wd, test_var = "subgroup", conf = conf)$compare$
       lr_tests$p_value[1]),
     error = function(e) NA_real_)
+}
+
+# Any number of levels: LR test of the bivariate meta-regression with one
+# logit-sensitivity and one logit-specificity shift per extra level against
+# the model without them (Cochrane Handbook DTA ch. 10, meta-regression).
+# Only levels with at least two studies enter; `grp` is in sorted-study order.
+.sroc_group_test_multi <- function(fit, grp) {
+  long  <- fit$long
+  studs <- sort(unique(as.character(long$studlab)))
+  k_lv  <- table(grp[!is.na(grp)])
+  keep  <- names(k_lv)[k_lv >= 2]
+  if (length(keep) < 2) return(NA_real_)
+  g_by  <- stats::setNames(as.character(grp), studs)
+  d     <- long[as.character(long$studlab) %in% studs[!is.na(grp) & grp %in% keep], ,
+                drop = FALSE]
+  g     <- g_by[as.character(d$studlab)]
+  shift <- character(0)
+  for (j in seq_along(keep)[-1]) {
+    se_j <- paste0("se_g", j); sp_j <- paste0("sp_g", j)
+    d[[se_j]] <- d$sens * as.integer(g == keep[j])
+    d[[sp_j]] <- d$spec * as.integer(g == keep[j])
+    shift <- c(shift, se_j, sp_j)
+  }
+  nAGQ <- fit$call_args$nAGQ; if (is.null(nAGQ)) nAGQ <- 1L
+  re <- "(0 + sens + spec | studlab)"
+  f0 <- stats::as.formula(paste("cbind(true, n - true) ~ 0 + sens + spec +", re))
+  f1 <- stats::as.formula(paste("cbind(true, n - true) ~ 0 + sens + spec +",
+                                paste(shift, collapse = " + "), "+", re))
+  tryCatch(suppressWarnings(suppressMessages({
+    m0 <- lme4::glmer(f0, data = d, family = stats::binomial, nAGQ = nAGQ)
+    m1 <- lme4::glmer(f1, data = d, family = stats::binomial, nAGQ = nAGQ)
+    lmtest::lrtest(m0, m1)[["Pr(>Chisq)"]][2]
+  })), error = function(e) NA_real_)
 }
 
 # Pairwise: 2-df LR test of the test x subgroup interaction on model B.
@@ -132,7 +169,17 @@
 
 # One column of a level table: Studies, Sens, Spec, AUC, LR+, LR-, I2 of one
 # fit, formatted.
-.sroc_group_table_col <- function(fit, k, conf, auc_ci, B, digits) {
+.sroc_group_table_col <- function(fit, k, conf, auc_ci, B, digits, raw = NULL) {
+  if (is.null(fit) && !is.null(raw) && k == 1) {
+    # one study: its own accuracy with exact (Clopper-Pearson) intervals;
+    # AUC, LRs and I2 need a pooled model and are not applicable
+    se <- stats::binom.test(raw$TP, raw$TP + raw$FN, conf.level = conf)
+    sp <- stats::binom.test(raw$TN, raw$TN + raw$FP, conf.level = conf)
+    return(c("1",
+             .sroc_fmt_ci(se$estimate, se$conf.int[1], se$conf.int[2], digits),
+             .sroc_fmt_ci(sp$estimate, sp$conf.int[1], sp$conf.int[2], digits),
+             "-", "-", "-", "-"))
+  }
   r  <- .loo_single_row(fit, conf, auc_ci, B)$row
   i2 <- if (!is.null(fit) && !is.null(fit$heterogeneity))
     sprintf("%.1f%%", 100 * fit$heterogeneity$I2_biv) else "n/a"
@@ -152,11 +199,12 @@
                                      lr.show = FALSE, overall = NULL,
                                      overall.k = NULL,
                                      group.label = "This group",
-                                     overall.label = "All studies") {
+                                     overall.label = "All studies",
+                                     raw = NULL) {
   out <- data.frame(
     Measure = c("Studies", "Sensitivity", "Specificity", "AUC", "LR+", "LR-",
                 "I\u00b2"),
-    Estimate = .sroc_group_table_col(fit, k, conf, auc_ci, B, digits),
+    Estimate = .sroc_group_table_col(fit, k, conf, auc_ci, B, digits, raw = raw),
     stringsAsFactors = FALSE, check.names = FALSE)
   if (!is.null(overall)) {
     out$Overall <- .sroc_group_table_col(overall, overall.k, conf, auc_ci, B,
@@ -249,6 +297,33 @@
     t = 1, b = nrow(tg), l = 1, r = ncol(tg), name = "container-border")
 }
 
+# Combined subgroup table: the Measure column once, then one value column
+# per level (headed by the level's symbol and name).  Per-level tables that
+# carry an "All studies" column keep only their level column here.
+.sroc_group_table_combined <- function(tables) {
+  out <- data.frame(Measure = tables[[1]]$Measure, stringsAsFactors = FALSE,
+                    check.names = FALSE)
+  for (lv in names(tables)) out[[lv]] <- tables[[lv]][[2]]
+  out
+}
+
+.sroc_table_grob_combined <- function(df, cex = 0.75, shapes = NULL,
+                                      colors = NULL) {
+  tg <- .sroc_table_grob(df, title = NULL, cex = cex)
+  if (is.null(shapes)) return(tg)
+  # the level symbol (as drawn in the panel) just left of each header name
+  for (j in seq_along(df)[-1]) {
+    lv  <- names(df)[j]
+    txt <- grid::textGrob(lv, gp = grid::gpar(fontface = "bold", cex = cex))
+    sym <- grid::pointsGrob(
+      x = grid::unit(0.5, "npc") - grid::grobWidth(txt) * 0.5 - grid::unit(8, "pt"),
+      y = grid::unit(0.5, "npc"), pch = shapes[[lv]], size = grid::unit(8, "pt"),
+      gp = grid::gpar(col = if (is.null(colors)) "black" else colors[[lv]], lwd = 2))
+    tg <- gtable::gtable_add_grob(tg, sym, t = 1, l = j, name = paste0("sym-", j))
+  }
+  tg
+}
+
 # Subgroup figure: the sROC panel on top and, beneath it, the title
 # "By <name> (p = X)" over the per-level tables (level name inside each
 # border).  The tables row is placed in the same layout columns as the
@@ -258,14 +333,20 @@
 # width of the tables.  Returns a gtable with "height" / "width" attributes.
 .sroc_group_figure <- function(p, tables, group.name, p_value,
                                panel.scale = 1.4, gap_in = 0.3,
-                               shapes = NULL, colors = NULL) {
+                               shapes = NULL, colors = NULL,
+                               style = c("combined", "separate"),
+                               fig.width = 7) {
+  style <- match.arg(style)
   title_txt <- sprintf("By %s (p %s)", group.name,
-                       if (is.na(p_value)) "= n/a"
+                       if (is.na(p_value)) "not estimable"
                        else if (p_value < 0.001) "< 0.001"
                        else sprintf("= %.3f", p_value))
   title <- grid::textGrob(title_txt, gp = grid::gpar(fontface = "bold",
                                                      fontsize = 12))
-  grobs <- lapply(names(tables), function(lv)
+  grobs <- if (style == "combined") {
+    list(.sroc_table_grob_combined(.sroc_group_table_combined(tables),
+                                   shapes = shapes, colors = colors))
+  } else lapply(names(tables), function(lv)
     .sroc_table_grob(tables[[lv]], lv,
                      pch = if (!is.null(shapes)) shapes[[lv]] else NULL,
                      col = if (!is.null(colors)) colors[[lv]] else NULL))
@@ -293,10 +374,13 @@
                                 widths = do.call(grid::unit.c, widths),
                                 heights = tab_h)
 
-  # figure width from the tables; room for the y axis on the left
+  # combined: the standard figure width, widened only if the table needs it;
+  # separate: width from the tables.  Room for the y axis on the left.
   axis_in <- 0.75
-  fig_w   <- grid::unit((sum(nat_w) + gap_in * (n - 1)) * panel.scale + axis_in, "in")
-  pan_h   <- fig_w + grid::unit(1.3, "in")   # + title (3 lines) and x axis
+  fig_w   <- if (style == "combined") {
+    grid::unit(max(fig.width, nat_w + axis_in + 0.25), "in")
+  } else grid::unit((sum(nat_w) + gap_in * (n - 1)) * panel.scale + axis_in, "in")
+  pan_h   <- fig_w + grid::unit(if (style == "combined") 0.55 else 1.3, "in")   # + title and x axis
 
   # tables in the ggplot's own panel columns so both share one x extent
   gp  <- ggplot2::ggplotGrob(p)

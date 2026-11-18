@@ -67,7 +67,19 @@
 #' @param lr.show     Show LR+ / LR- rows in the subgroup tables? Always
 #'   computed; default `FALSE`.
 #' @param panel.scale Width of the sROC panel relative to the natural width
-#'   of the row of tables (default 1.4).
+#'   of the row of tables when `group.table.style = "separate"` (default 1.4).
+#' @param group.table.style `"combined"` (the default) puts one table under the
+#'   panel: the Measure column once, then one value column per level headed by
+#'   its symbol, so the figure keeps a standard size.  `"separate"` draws one
+#'   bordered table per level side by side, as before.
+#' @param group.pooled Draw the curve, summary point and confidence region
+#'   pooled over all levels (and its summary box)?  Default `TRUE`.  Set
+#'   `FALSE` when the levels must not be pooled, e.g. trimesters on scales
+#'   that differ: only the per-level curves and the level table remain.
+#' @param group.width Figure width in inches for the combined layout (default
+#'   7); it grows only if the table needs more room.  The figure is square plus
+#'   the title, axis and table height; `attr(., "width")` / `attr(., "height")`
+#'   give the size to open the device with.
 #' @param group.suffix Text appended to each group level in the legend
 #'   (default `" studies"`, so `"curvilinear"` reads `"curvilinear studies"`).
 #' @param shapes      Plot symbols used for the `group` levels, in order
@@ -135,10 +147,14 @@ dta_sroc <- function(fit,
                      group.level.label = "This group",
                      lr.show = FALSE,
                      panel.scale = 1.4,
+                     group.table.style = c("combined", "separate"),
+                     group.width = 7,
+                     group.pooled = TRUE,
                      auc_override = NULL) {
   stopifnot(inherits(fit, "dta_single"))
   legend.pos   <- match.arg(legend.pos)
   legend.style <- match.arg(legend.style)
+  group.table.style <- match.arg(group.table.style)
   f <- .fixed_se_sp(fit$fit)
   Psi <- fit$Psi
   tau_sens <- sqrt(Psi[1, 1])
@@ -204,6 +220,8 @@ dta_sroc <- function(fit,
   # prediction region: on for the plain plot, off in the subgroup figure
   # (per-level curves already crowd the panel); pass `pred` to override
   if (is.null(pred)) pred <- !grouped_fig
+  # without a pooled layer there is nothing for the summary box to report
+  if (length(grp_lv) && !isTRUE(group.pooled)) { summary <- FALSE; ci <- FALSE; pred <- FALSE }
 
   # Subgroup layer: refit each level on its own studies for a per-level sROC
   # curve + summary point (drawn in the level colour) and the summary tables.
@@ -265,7 +283,7 @@ dta_sroc <- function(fit,
   # Two columns rendered as separate text annotations so the LEFT edge of
   # every label (Sens / Spec / AUC / I2) lines up exactly, and the "="
   # plus value all start at the same x to the right of the labels.
-  rows_label <- c("Sens", "Spec", "AUC", "I2")
+  rows_label <- c("Sens", "Spec", "AUC", "I²")
   rows_value <- paste(
     "=",
     c(
@@ -281,7 +299,7 @@ dta_sroc <- function(fit,
   # The summary box on the right auto-sizes its width to the widest
   # "label value" pair so it stays as tight as possible against the
   # bottom-right corner.
-  box_h     <- 0.235
+  box_h     <- 0.205
   text_size <- 3.2
   # Approximate character width in plot units for ggplot::annotate text
   # at size = 3.2 on a roughly square panel saved at ~150 dpi.  This is a
@@ -290,8 +308,8 @@ dta_sroc <- function(fit,
   pad_x   <- 0.012   # horizontal padding inside the box
   gap_lv  <- 0.005   # tiny gap between the label column and the value text
 
-  label_w <- max(nchar(rows_label)) * char_w
-  value_w <- max(nchar(rows_value)) * char_w
+  label_w <- max(nchar(rows_label)) * char_w * 1.3   # bold labels run wider than plain text
+  value_w <- max(nchar(rows_value)) * char_w * 0.8   # digits and punctuation run narrow
   box_title <- "Summary"
   # Bold title rendered slightly wider than plain text.
   title_w <- nchar(box_title) * char_w * 1.10
@@ -304,7 +322,7 @@ dta_sroc <- function(fit,
 
   # Vertical layout: title row at the top, then 4 evenly-spaced data rows.
   ys_title <- bx$ymax - 0.030
-  row_step <- 0.045
+  row_step <- 0.04
   ys_rows  <- seq(ys_title - row_step, by = -row_step, length.out = 4)
 
   # Two left-anchored columns so every label (Sens / Spec / AUC / I2)
@@ -367,8 +385,8 @@ dta_sroc <- function(fit,
   lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = n_lg)
 
   # Two lines: the title has to fit inside a half-width panel in dta_sroc_pair.
-  title_text <- if (grouped_fig) {
-    # the subgroup figure is only as wide as its tables: three short lines
+  title_text <- if (grouped_fig && group.table.style == "separate") {
+    # the separate-tables figure is only as wide as its tables: three short lines
     sprintf("sROC of %s\nto predict %s\nin %s", test.label, outcome, population)
   } else {
     sprintf("sROC of %s\nto predict %s in %s", test.label, outcome, population)
@@ -392,16 +410,19 @@ dta_sroc <- function(fit,
                                 linewidth = 0.6)
   }
 
-  p <- p +
+  pooled_layer <- !(length(grp_lv) && !isTRUE(group.pooled))
+  if (pooled_layer) p <- p +
     ggplot2::geom_line(data = curve,
                        ggplot2::aes(x = fpr, y = tpr),
                        colour = "black",
                        linetype = "solid",
-                       linewidth = 0.6) +
+                       linewidth = 0.6)
+  p <- p +
     ggplot2::geom_point(data = if (length(grp_lv)) pts[is.na(pts$grp), ] else pts,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 0, size = 2.4, colour = "black",
-                        show.legend = FALSE) +
+                        show.legend = FALSE)
+  if (pooled_layer) p <- p +
     ggplot2::geom_point(data = summary_pt,
                         ggplot2::aes(x = fpr, y = tpr),
                         shape = 16, size = 3.5, colour = "black")
@@ -549,6 +570,7 @@ dta_sroc <- function(fit,
   if (grouped_fig) {
     p_grp  <- .sroc_group_test_single(fit, pts$grp, conf)
     k_all <- length(unique(as.character(fit$long$studlab)))
+    cnt_all <- .extract_counts(fit, NULL)
     tables <- stats::setNames(lapply(grp_lv, function(lv)
       .sroc_group_table_single(grp_fits[[lv]], sum(pts$grp == lv, na.rm = TRUE),
                                conf, isTRUE(auc) && isTRUE(auc_ci), B,
@@ -556,12 +578,18 @@ dta_sroc <- function(fit,
                                overall = if (isTRUE(group.overall)) fit else NULL,
                                overall.k = k_all,
                                group.label = group.level.label,
-                               overall.label = group.overall.label)), grp_lv)
+                               overall.label = group.overall.label,
+                               raw = {
+                                 i <- which(!is.na(pts$grp) & pts$grp == lv)
+                                 list(TP = sum(cnt_all$TP[i]), FP = sum(cnt_all$FP[i]),
+                                      FN = sum(cnt_all$FN[i]), TN = sum(cnt_all$TN[i]))
+                               })), grp_lv)
     # Panel over the tables, tables spanning exactly the panel's x extent;
     # the figure is centred on the device when printed.
     g <- .sroc_group_figure(p, tables, group.name, p_grp,
                             panel.scale = panel.scale,
-                            shapes = grp_shape, colors = grp_col)
+                            shapes = grp_shape, colors = grp_col,
+                            style = group.table.style, fig.width = group.width)
     attr(g, "panel")  <- p
     attr(g, "tables") <- tables
     attr(g, "p_subgroup") <- p_grp
@@ -945,7 +973,7 @@ print.dta_sroc_pair <- function(x, ...) {
   p_q <- if (q_df > 0) stats::pchisq(q_stat, df = q_df, lower.tail = FALSE)
          else NA_real_
   out <- rbind(out, data.frame(
-    Measure = "I2",
+    Measure = "Residual I² (Q test)",
     Diff = if (is.na(i2)) "n/a" else sprintf("%.1f%%", 100 * i2),
     P = fmt_p(p_q),
     stringsAsFactors = FALSE
@@ -953,13 +981,21 @@ print.dta_sroc_pair <- function(x, ...) {
 
   # The arm names already head the two panels above the table, so the
   # effect-size column stays short, without "(A - B)".
-  names(out) <- c("Measure", "Effect Size", "P-value")
+  names(out) <- c("Measure", "Difference (left - right panel)", "P-value")
   out
 }
 
 # AUC = trapezoidal integral of the fitted SROC curve; CI = parametric MVN
 # bootstrap (.trapz_auc_ci).
-.compute_auc <- function(fit, B, conf, curve, slope = NULL, fpr_grid = NULL) {
+.compute_auc <- function(fit, B, conf, curve, slope = NULL, fpr_grid = NULL,
+                         seed = 2026) {
+  # fixed seed: one fit always prints the same interval, in every figure;
+  # the caller's random-number state is put back afterwards
+  if (exists(".Random.seed", envir = globalenv())) {
+    old_seed <- get(".Random.seed", envir = globalenv())
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  }
+  set.seed(seed)
   ord <- order(curve$fpr)
   AUC <- pracma::trapz(curve$fpr[ord], curve$tpr[ord])
   CI  <- .trapz_auc_ci(fit, slope, fpr_grid, B, conf)

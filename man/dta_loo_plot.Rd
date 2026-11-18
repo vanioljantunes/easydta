@@ -11,6 +11,7 @@ dta_loo_plot(
   digits = 2,
   lr.show = FALSE,
   i2.show = TRUE,
+  title = NULL,
   ...
 )
 }
@@ -31,6 +32,8 @@ computed (see \code{x$table}); default \code{FALSE} keeps the table compact.}
 
 \item{i2.show}{Logical. Show the Zhou-Dendukuri bivariate I^2 column
 (one per arm for a comparison)? Default \code{TRUE}.}
+
+\item{title}{Panel title of the single-test plot (default "sROC omitting each study").}
 
 \item{...}{Forwarded to \code{\link[=dta_loo]{dta_loo()}} when \code{x} is not a \code{dta_loo}.}
 }
