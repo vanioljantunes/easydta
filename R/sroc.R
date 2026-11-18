@@ -648,6 +648,8 @@ dta_sroc <- function(fit,
 #'   "By <group.name> (p = X)" over one table per level beneath it) and the
 #'   two figures sit side by side; the differences table is not drawn.
 #'   Default `NULL`.
+#' @param seed Seed for the AUC bootstraps (default 2026), so the figure is
+#'   reproducible; the caller's random-number state is restored.
 #' @param group.name Subgroup variable name for the table titles.
 #' @param lr.show   Show LR+ / LR- rows in the subgroup tables (default
 #'   `FALSE`).
@@ -684,7 +686,15 @@ dta_sroc_pair <- function(x,
                           group.c = NULL,
                           group.name = "subgroup",
                           lr.show = FALSE,
+                          seed = 2026,
                           ...) {
+  # fixed seed for the AUC bootstraps: the figure prints the same intervals
+  # however many chunks ran before it; the caller's RNG state is restored
+  if (exists(".Random.seed", envir = globalenv())) {
+    old_seed <- get(".Random.seed", envir = globalenv())
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  }
+  set.seed(seed)
   arms <- if (inherits(x, c("dta_pairwise_result", "dta_compare"))) {
     x$arms
   } else x

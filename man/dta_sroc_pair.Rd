@@ -21,6 +21,7 @@ dta_sroc_pair(
   group.c = NULL,
   group.name = "subgroup",
   lr.show = FALSE,
+  seed = 2026,
   ...
 )
 }
@@ -66,6 +67,9 @@ Default \code{NULL}.}
 
 \item{lr.show}{Show LR+ / LR- rows in the subgroup tables (default
 \code{FALSE}).}
+
+\item{seed}{Seed for the AUC bootstraps (default 2026), so the figure is
+reproducible; the caller's random-number state is restored.}
 
 \item{...}{Extra arguments forwarded to both \code{dta_sroc()} calls
 (e.g. \code{labels}, \code{pred}, \code{shapes}, \code{colors}, \code{legend.pos},
