@@ -76,6 +76,12 @@
 #'   pooled over all levels (and its summary box)?  Default `TRUE`.  Set
 #'   `FALSE` when the levels must not be pooled, e.g. trimesters on scales
 #'   that differ: only the per-level curves and the level table remain.
+#' @param panel.size Printed width of the sROC panel in inches (default 8).
+#'   The summary and legend boxes are laid out in data units, so a smaller
+#'   panel (for example 5 in, one of several panels in a figure) needs larger
+#'   boxes for the same text; set this to the panel's real width.
+#' @param text.size Text size of the summary and legend boxes in ggplot units
+#'   (default 3.2, about 9 pt); the boxes grow with it.
 #' @param group.width Figure width in inches for the combined layout (default
 #'   7); it grows only if the table needs more room.  The figure is square plus
 #'   the title, axis and table height; `attr(., "width")` / `attr(., "height")`
@@ -150,6 +156,8 @@ dta_sroc <- function(fit,
                      group.table.style = c("combined", "separate"),
                      group.width = 7,
                      group.pooled = TRUE,
+                     panel.size = 8,
+                     text.size = 3.2,
                      auc_override = NULL) {
   stopifnot(inherits(fit, "dta_single"))
   legend.pos   <- match.arg(legend.pos)
@@ -299,14 +307,16 @@ dta_sroc <- function(fit,
   # The summary box on the right auto-sizes its width to the widest
   # "label value" pair so it stays as tight as possible against the
   # bottom-right corner.
-  box_h     <- 0.205
-  text_size <- 3.2
+  # box geometry is in data units: scale it to the panel's printed size and the text size
+  gs        <- (8 / panel.size) * (text.size / 3.2)
+  box_h     <- 0.205 * gs
+  text_size <- text.size
   # Approximate character width in plot units for ggplot::annotate text
   # at size = 3.2 on a roughly square panel saved at ~150 dpi.  This is a
   # heuristic, not a measurement -- generous enough to avoid clipping.
-  char_w  <- 0.0125
-  pad_x   <- 0.012   # horizontal padding inside the box
-  gap_lv  <- 0.005   # tiny gap between the label column and the value text
+  char_w  <- 0.0125 * gs
+  pad_x   <- 0.012 * gs   # horizontal padding inside the box
+  gap_lv  <- 0.005 * gs   # tiny gap between the label column and the value text
 
   label_w <- max(nchar(rows_label)) * char_w * 1.3   # bold labels run wider than plain text
   value_w <- max(nchar(rows_value)) * char_w * 0.8   # digits and punctuation run narrow
@@ -321,8 +331,8 @@ dta_sroc <- function(fit,
              ymin = 0.00,      ymax = box_h)
 
   # Vertical layout: title row at the top, then 4 evenly-spaced data rows.
-  ys_title <- bx$ymax - 0.030
-  row_step <- 0.04
+  ys_title <- bx$ymax - 0.030 * gs
+  row_step <- 0.04 * gs
   ys_rows  <- seq(ys_title - row_step, by = -row_step, length.out = 4)
 
   # Two left-anchored columns so every label (Sens / Spec / AUC / I2)
@@ -371,8 +381,8 @@ dta_sroc <- function(fit,
   # Legend box geometry, then anchored by `legend.pos`: away from the
   # top-left cloud of study points, which the old bottom-left box could hide
   # on high-specificity data.
-  lg_w <- max(0.30, 0.07 + max(nchar(legend_text)) * char_w + 0.012)
-  lg_h <- 0.055 + (n_lg - 1) * row_step   # sized to its own rows, no empty band
+  lg_w <- max(0.30 * gs, 0.07 * gs + max(nchar(legend_text)) * char_w + 0.012 * gs)
+  lg_h <- 0.055 * gs + (n_lg - 1) * row_step   # sized to its own rows, no empty band
   lg <- switch(legend.pos,
     bottomleft = list(xmin = 0.00,           xmax = lg_w,
                       ymin = 0.00,           ymax = lg_h),
@@ -380,9 +390,9 @@ dta_sroc <- function(fit,
                       ymin = 0.00,           ymax = lg_h),
     topright   = list(xmin = 1 - lg_w,       xmax = 1.00,
                       ymin = 1 - lg_h,       ymax = 1.00))
-  lg_x_sym   <- lg$xmin + 0.03
-  lg_x_label <- lg$xmin + 0.07
-  lg_rows <- seq(lg$ymax - 0.030, by = -row_step, length.out = n_lg)
+  lg_x_sym   <- lg$xmin + 0.03 * gs
+  lg_x_label <- lg$xmin + 0.07 * gs
+  lg_rows <- seq(lg$ymax - 0.030 * gs, by = -row_step, length.out = n_lg)
 
   # Two lines: the title has to fit inside a half-width panel in dta_sroc_pair.
   title_text <- if (grouped_fig && group.table.style == "separate") {
@@ -507,7 +517,7 @@ dta_sroc <- function(fit,
                         label = lab_txt, colour = unname(grp_col),
                         hjust = 0, size = 3.1)
   } else {
-    seg_half <- 0.018
+    seg_half <- 0.018 * gs
     p <- p +
       ggplot2::annotate("rect",
                         xmin = lg$xmin, xmax = lg$xmax,
@@ -533,7 +543,7 @@ dta_sroc <- function(fit,
       ggplot2::annotate("text",
                         x = lg_x_label, y = lg_rows,
                         label = legend_text,
-                        hjust = 0, size = 3.1)
+                        hjust = 0, size = text_size - 0.1)
   }
 
   p <- p +

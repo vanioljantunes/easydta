@@ -36,6 +36,8 @@ dta_sroc(
   group.table.style = c("combined", "separate"),
   group.width = 7,
   group.pooled = TRUE,
+  panel.size = 8,
+  text.size = 3.2,
   auc_override = NULL
 )
 }
@@ -148,6 +150,14 @@ give the size to open the device with.}
 pooled over all levels (and its summary box)?  Default \code{TRUE}.  Set
 \code{FALSE} when the levels must not be pooled, e.g. trimesters on scales
 that differ: only the per-level curves and the level table remain.}
+
+\item{panel.size}{Printed width of the sROC panel in inches (default 8).
+The summary and legend boxes are laid out in data units, so a smaller
+panel (for example 5 in, one of several panels in a figure) needs larger
+boxes for the same text; set this to the panel's real width.}
+
+\item{text.size}{Text size of the summary and legend boxes in ggplot units
+(default 3.2, about 9 pt); the boxes grow with it.}
 
 \item{auc_override}{Optional list with elements \code{AUC} and \code{CI}, used in
 place of the computed AUC and its bootstrap interval; the pairwise
