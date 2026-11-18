@@ -4,7 +4,7 @@
 \alias{dta_loo}
 \title{Diagnostics: leave-one-out sensitivity analysis}
 \usage{
-dta_loo(x, conf = 0.95, auc_ci = TRUE, B = 2000, verbose = FALSE)
+dta_loo(x, conf = 0.95, auc_ci = TRUE, B = 2000, verbose = FALSE, seed = 2026)
 }
 \arguments{
 \item{x}{A \code{dta_single} fit or a \code{dta_pairwise_result} (from
@@ -20,6 +20,8 @@ only the AUC point estimates and is much faster.}
 \item{B}{MVN-bootstrap replicates per refit (default 2000).}
 
 \item{verbose}{Logical. Print one line per refit (default \code{FALSE}).}
+
+\item{seed}{Seed for the AUC bootstraps (default 2026); the caller's random-number state is restored.}
 }
 \value{
 An S3 object of class \code{"dta_loo"} with \verb{$table} (one row per

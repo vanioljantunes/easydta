@@ -44,6 +44,7 @@
 #'   comparison, the dAUC CI and p-value)?  Default `TRUE`; `FALSE` keeps
 #'   only the AUC point estimates and is much faster.
 #' @param B       MVN-bootstrap replicates per refit (default 2000).
+#' @param seed Seed for the AUC bootstraps (default 2026); the caller's random-number state is restored.
 #' @param verbose Logical. Print one line per refit (default `FALSE`).
 #'
 #' @return An S3 object of class `"dta_loo"` with `$table` (one row per
@@ -64,7 +65,14 @@
 #' }
 #' @export
 dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
-                    verbose = FALSE) {
+                    verbose = FALSE, seed = 2026) {
+  # fixed seed for the AUC bootstraps, so the pooled row matches the main sROC
+  # of the same fit and reruns print the same intervals; caller RNG restored
+  if (exists(".Random.seed", envir = globalenv())) {
+    old_seed <- get(".Random.seed", envir = globalenv())
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  }
+  set.seed(seed)
   if (inherits(x, "dta_single")) {
     .loo_single(x, conf, auc_ci, B, verbose)
   } else if (inherits(x, "dta_pairwise_result")) {
@@ -104,6 +112,16 @@ dta_loo <- function(x, conf = 0.95, auc_ci = TRUE, B = 2000,
     geom[[i]] <- r$geom
   }
   full <- .loo_single_row(fit, conf, auc_ci, B)
+  # the pooled row takes its AUC from dta_sroc() on the same fit, so it prints the
+  # interval of the main sROC figure exactly
+  if (isTRUE(auc_ci)) {
+    ref <- tryCatch(suppressMessages(dta_sroc(fit, B = B, conf = conf)), error = function(e) NULL)
+    if (!is.null(ref) && !is.null(attr(ref, "AUC_CI"))) {
+      full$row$auc     <- attr(ref, "AUC")
+      full$row$auc_lci <- attr(ref, "AUC_CI")[1]
+      full$row$auc_uci <- attr(ref, "AUC_CI")[2]
+    }
+  }
 
   tab <- rbind(do.call(rbind, rows), full$row)
   tab <- cbind(
@@ -593,7 +611,9 @@ print.dta_loo_plot <- function(x, ...) {
     ggplot2::theme_bw() +
     ggplot2::theme(panel.grid      = ggplot2::element_blank(),
                    legend.position = "none",
+                   axis.text       = ggplot2::element_text(size = 10),
+                   axis.title      = ggplot2::element_text(size = 11),
                    plot.title      = ggplot2::element_text(face = "bold",
                                                            hjust = 0.5,
-                                                           size = 10))
+                                                           size = 11))
 }
