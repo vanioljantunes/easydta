@@ -372,7 +372,7 @@ dta_sroc <- function(fit,
   # top-left cloud of study points, which the old bottom-left box could hide
   # on high-specificity data.
   lg_w <- max(0.30, 0.07 + max(nchar(legend_text)) * char_w + 0.012)
-  lg_h <- max(box_h, 0.055 + (n_lg - 1) * row_step)
+  lg_h <- 0.055 + (n_lg - 1) * row_step   # sized to its own rows, no empty band
   lg <- switch(legend.pos,
     bottomleft = list(xmin = 0.00,           xmax = lg_w,
                       ymin = 0.00,           ymax = lg_h),
@@ -480,9 +480,9 @@ dta_sroc <- function(fit,
     # I2 is much shorter than the other labels: centre it in the label
     # column so it does not float away from its "= value".
     ggplot2::annotate("text",
-                      x = x_label_anchor + label_w / 2, y = ys_rows[4],
+                      x = x_label_anchor, y = ys_rows[4],
                       label = rows_label[4],
-                      fontface = "bold", hjust = 0.5, size = text_size) +
+                      fontface = "bold", hjust = 0, size = text_size) +
     ggplot2::annotate("text",
                       x = x_value_anchor, y = ys_rows,
                       label = rows_value,

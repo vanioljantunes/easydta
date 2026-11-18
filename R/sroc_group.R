@@ -58,7 +58,9 @@
     if (is.null(f0)) next
     f  <- .fixed_se_sp(f0$fit)
     g  <- .arm_auc_geom(f0, length(fpr_grid))
-    curves <- rbind(curves, data.frame(
+    # a level with no between-study variance in sensitivity or specificity has a
+    # degenerate curve (a horizontal or vertical line): keep only its summary point
+    if (!.sroc_fit_degenerate(f0)) curves <- rbind(curves, data.frame(
       grp = lv, fpr = fpr_grid,
       tpr = stats::plogis(f$lsens - g$slope * (lsp - f$lspec)),
       stringsAsFactors = FALSE))
@@ -68,6 +70,28 @@
   }
   list(curves = curves, summary = summ)
 }
+
+#' Is the sROC of a fit degenerate?
+#'
+#' The Harbord sROC slope is the ratio of the between-study standard
+#' deviations of logit sensitivity and logit specificity.  When one of them is
+#' close to zero, or one is many times the other, the curve collapses onto a
+#' horizontal or vertical line and its AUC simply repeats the sensitivity or
+#' the specificity.  Such a curve and AUC are not reported.
+#'
+#' @param fit A `dta_single` fit.
+#' @param tol Smallest acceptable between-study SD (default 0.1).
+#' @param max.ratio Largest acceptable ratio of the two SDs (default 5).
+#' @param min.k Fewest studies for a curve (default 3).
+#' @return `TRUE` when the curve and its AUC should not be shown.
+#' @export
+dta_sroc_degenerate <- function(fit, tol = 0.1, max.ratio = 5, min.k = 3) {
+  if (is.null(fit) || is.null(fit$Psi)) return(FALSE)
+  k   <- length(unique(as.character(fit$long$studlab)))
+  tau <- sqrt(pmax(diag(fit$Psi), 0))
+  k < min.k || min(tau) < tol || max(tau) / min(tau) > max.ratio
+}
+.sroc_fit_degenerate <- function(fit) dta_sroc_degenerate(fit)
 
 # -- Tests for subgroup differences ----------------------------------------
 
@@ -159,7 +183,7 @@
 .sroc_fmt_ci <- function(e, l, u, digits = 2) {
   if (is.na(e)) return("n/a")
   if (is.na(l) || is.na(u)) return(sprintf(sprintf("%%.%df", digits), e))
-  sprintf(sprintf("%%.%df (%%.%df, %%.%df)", digits, digits, digits), e, l, u)
+  sprintf(sprintf("%%.%df (%%.%df to %%.%df)", digits, digits, digits), e, l, u)
 }
 
 .sroc_fmt_p <- function(p) {
@@ -180,13 +204,23 @@
              .sroc_fmt_ci(sp$estimate, sp$conf.int[1], sp$conf.int[2], digits),
              "-", "-", "-", "-"))
   }
+  # fixed seed for the AUC bootstrap, so the figure and any table built from the
+  # same fit print the same interval; the caller's RNG state is restored
+  if (exists(".Random.seed", envir = globalenv())) {
+    old_seed <- get(".Random.seed", envir = globalenv())
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  }
+  set.seed(2026)
   r  <- .loo_single_row(fit, conf, auc_ci, B)$row
   i2 <- if (!is.null(fit) && !is.null(fit$heterogeneity))
-    sprintf("%.1f%%", 100 * fit$heterogeneity$I2_biv) else "n/a"
+    sprintf("%.0f%%", 100 * fit$heterogeneity$I2_biv) else "n/a"
+  # no AUC when the fitted curve is degenerate (see .sroc_fit_degenerate)
+  auc_txt <- if (.sroc_fit_degenerate(fit)) "-" else
+    .sroc_fmt_ci(r$auc, r$auc_lci, r$auc_uci, digits)
   c(as.character(k),
     .sroc_fmt_ci(r$sens, r$sens_lci, r$sens_uci, digits),
     .sroc_fmt_ci(r$spec, r$spec_lci, r$spec_uci, digits),
-    .sroc_fmt_ci(r$auc,  r$auc_lci,  r$auc_uci,  digits),
+    auc_txt,
     .sroc_fmt_ci(r$lrp,  r$lrp_lci,  r$lrp_uci,  digits),
     .sroc_fmt_ci(r$lrn,  r$lrn_lci,  r$lrn_uci,  digits),
     i2)

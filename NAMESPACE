@@ -51,3 +51,4 @@ importFrom(ggplot2, ggplot, aes, geom_point, geom_errorbarh,
            scale_x_continuous, scale_y_continuous, coord_cartesian,
            theme_bw, theme, element_blank, element_text, labs,
            annotate, geom_text)
+export(dta_sroc_degenerate)
